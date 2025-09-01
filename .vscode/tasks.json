@@ -1,0 +1,150 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "task - internal - library - clean",
+			"type": "shell",
+			"command": "npm run clean",
+			"options": {
+				"cwd": "${workspaceFolder}/library"
+			}
+		},
+		{
+			"label": "task - internal - extensions - clean",
+			"type": "shell",
+			"command": "npm run clean",
+			"options": {
+				"cwd": "${workspaceFolder}/extensions"
+			}
+		},
+		{
+			"label": "task - internal - webviews - clean",
+			"type": "shell",
+			"command": "npm run clean",
+			"options": {
+				"cwd": "${workspaceFolder}/webviews"
+			}
+		},
+		{
+			"label": "task - internal - library - build",
+			"type": "shell",
+			"command": "npm run build",
+			"options": {
+				"cwd": "${workspaceFolder}/library"
+			}
+		},
+		{
+			"label": "task - internal - extensions - build",
+			"type": "shell",
+			"command": "npm run build",
+			"options": {
+				"cwd": "${workspaceFolder}/extensions"
+			}
+		},
+		{
+			"label": "task - internal - webviews - build",
+			"type": "shell",
+			"command": "npm run build",
+			"options": {
+				"cwd": "${workspaceFolder}/webviews"
+			}
+		},
+		{
+			"label": "task - internal - extensions - watch",
+			"type": "shell",
+			"command": "npm run watch",
+			"options": {
+				"cwd": "${workspaceFolder}/extensions"
+			},
+			"isBackground": true,
+			"problemMatcher": "$tsc-watch"
+		},
+		{
+			"label": "task - internal - webviews - watch",
+			"type": "shell",
+			"command": "npm run watch",
+			"options": {
+				"cwd": "${workspaceFolder}/webviews"
+			},
+			"isBackground": true,
+			"problemMatcher": [
+				{
+					"owner": "webpack",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}"
+					],
+					"pattern": {
+						"regexp": "^ERROR in\\s+(.+?)\\s+(.*)$",
+						"file": 1,
+						"message": 2
+					},
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": ".*",
+						"endsPattern": "compiled successfully"
+					}
+				}
+			]
+		},
+		{
+			"label": "task - internal - watchers",
+			"dependsOn": [
+				"task - internal - extensions - watch",
+				"task - internal - webviews - watch"
+			],
+			"dependsOrder": "parallel"
+		},
+		{
+			"label": "task - internal - builders",
+			"dependsOn": [
+				"task - internal - library - build",
+				"task - internal - extensions - build",
+				"task - internal - webviews - build"
+			],
+			"dependsOrder": "parallel"
+		},
+		{
+			"label": "task - clean",
+			"dependsOn": [
+				"task - internal - library - clean",
+				"task - internal - extensions - clean",
+				"task - internal - webviews - clean"
+			],
+			"dependsOrder": "parallel"
+		},
+		{
+			"label": "task - watch",
+			"dependsOn": [
+				"task - internal - library - build",
+				"task - internal - watchers"
+			],
+			"dependsOrder": "sequence"
+		},
+		{
+			"label": "task - build",
+			"dependsOn": [
+				"task - internal - library - build",
+				"task - internal - builders"
+			],
+			"dependsOrder": "sequence"
+		},
+		{
+			"label": "task - package",
+			"dependsOn": [
+				"task - clean",
+				"task - build",
+				"task - internal - extensions - package"
+			],
+			"dependsOrder": "sequence"
+		},
+		{
+			"label": "task - internal - extensions - package",
+			"type": "shell",
+			"command": "npm run package",
+			"options": {
+				"cwd": "${workspaceFolder}/extensions"
+			}
+		}
+	]
+}

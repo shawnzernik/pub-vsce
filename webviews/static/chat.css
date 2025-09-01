@@ -1,0 +1,189 @@
+/* Chat message styles */
+.message-container {
+	color: var(--vscode-editor-foreground);
+	background: var(--vscode-editor-background);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	padding: 1em;
+	word-wrap: break-word;
+	line-height: 2em;
+}
+
+.message-container> :first-child {
+	margin-top: 0;
+}
+
+.message-container p+p {
+	margin-top: 2em;
+}
+
+.message-container h1,
+.message-container h2,
+.message-container h3,
+.message-container h4,
+.message-container h5,
+.message-container h6 {
+	font-weight: bolder;
+	margin: 0;
+	margin-top: 2em;
+}
+
+.message-container h1,
+.message-container h2 {
+	border-bottom: 1pt solid var(--vscode-editorGroup-border);
+}
+
+.message-container a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+.message-container a:hover {
+	text-decoration: underline;
+}
+
+.message-container ul,
+.message-container ol {
+	padding-left: 3em;
+}
+
+.message-container li+li {
+	margin: 0.25em 0;
+}
+
+.message-container blockquote {
+	margin: 1em 0;
+	padding: 0.8em 1.2em;
+	border-left: 0.3em solid var(--vscode-textBlockQuote-border);
+	background: var(--vscode-textBlockQuote-background);
+	color: var(--vscode-editor-foreground);
+}
+
+.message-container table {
+	border-collapse: collapse;
+	margin: 1em 0;
+	width: 100%;
+}
+
+.message-container th,
+.message-container td {
+	border: 1pt solid var(--vscode-editorGroup-border);
+	padding: 0.5em 0.6em;
+}
+
+.message-container th {
+	background: var(--vscode-editorHoverWidget-background);
+	text-align: left;
+}
+
+.message-container :not(pre)>code,
+.message-container :not(pre)>code.hljs {
+	display: inline !important;
+	white-space: break-spaces;
+	background: var(--vscode-textBlockQuote-background);
+	border: 1pt solid var(--vscode-editorGroup-border);
+	border-radius: 0.3em;
+	padding: 0.12em 0.4em;
+	color: var(--vscode-editor-foreground);
+}
+
+/* Code block chrome */
+.md-codeblock {
+	margin: 1em 0;
+	border: 1pt solid var(--vscode-editorGroup-border);
+	border-radius: 0.5em;
+	background: var(--vscode-editor-background);
+	overflow: hidden;
+}
+
+.md-codeblock__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6em;
+	background: var(--vscode-editorStickyScrollHover-background);
+	border-bottom: 1pt solid var(--vscode-editorGroup-border);
+	padding: 0.45em 0.7em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.md-codeblock__lang {
+	text-transform: lowercase;
+	opacity: 0.9;
+}
+
+.md-codeblock__actions {
+	display: flex;
+	gap: 0.4em;
+}
+
+.md-iconbtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.8em;
+	height: 1.8em;
+	background: transparent;
+	border: none;
+	border-radius: 0.3em;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+}
+
+.md-iconbtn:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.md-iconbtn svg {
+	width: 1.2em;
+	height: 1.2em;
+	fill: currentColor;
+}
+
+.md-codeblock pre {
+	margin: 0;
+	padding: 0.9em 1.1em;
+	overflow: auto;
+	background: transparent;
+}
+
+.md-codeblock pre>code.hljs {
+	display: block !important;
+	white-space: pre;
+	background: transparent !important;
+	color: inherit;
+	padding: 0;
+	border: 0;
+	font-family: var(--vscode-editor-font-family);
+}
+
+/* Selection */
+.md-codeblock pre ::selection,
+.md-codeblock pre ::-moz-selection,
+.message-container :not(pre)>code ::selection {
+	background: rgba(128, 128, 128, 0.15);
+}
+
+/* Horizontal rule */
+.message-container hr {
+	border: 0;
+	border-top: 1pt solid var(--vscode-editorGroup-border);
+	margin: 1em 0;
+}
+
+/* Images & checkboxes */
+.message-container img {
+	max-width: 100%;
+	height: auto;
+	border-radius: 0.25em;
+}
+
+.message-container input[type="checkbox"] {
+	transform: translateY(0.15em);
+	accent-color: var(--vscode-textLink-foreground);
+}
+
+.hljs {
+	background: transparent;
+	color: var(--vscode-editor-foreground);
+}

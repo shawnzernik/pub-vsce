@@ -1,0 +1,46 @@
+{
+	"name": "@lvt/aici-webviews",
+	"version": "1.0.0",
+	"author": "Shawn Zernik",
+	"license": "AGPL-3.0-or-later",
+	"description": "Artificial Intelligence Continuous Improvement (Aici)",
+	"keywords": [
+		"ai",
+		"llm",
+		"openai",
+		"chatgtp",
+		"chat",
+		"rag",
+		"agent"
+	],
+	"scripts": {
+		"build": "npm install && webpack",
+		"watch": "npm install && webpack --watch",
+		"clean": "rm -rf dist node_modules package-lock.json"
+	},
+	"type": "commonjs",
+	"devDependencies": {
+		"@svgr/webpack": "^8.1.0",
+		"@types/react": "^19.1.9",
+		"@types/react-dom": "^19.1.7",
+		"bootstrap-icons": "^1.13.1",
+		"copy-webpack-plugin": "^12.0.2",
+		"css-loader": "^7.1.2",
+		"html-webpack-plugin": "^5.6.3",
+		"style-loader": "^4.0.0",
+		"ts-loader": "^9.5.2",
+		"typescript": "^5.9.2",
+		"webpack": "^5.101.0",
+		"webpack-cli": "^6.0.1"
+	},
+	"dependencies": {
+		"@lvt/aici-library": "file:../lvt-aici-library-1.0.404.tgz",
+		"highlight.js": "^11.11.1",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1",
+		"react-markdown": "^10.1.0",
+		"rehype-highlight": "^7.0.2",
+		"rehype-raw": "^7.0.0",
+		"remark-gfm": "^4.0.1"
+	}
+}

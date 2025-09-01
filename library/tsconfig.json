@@ -1,0 +1,30 @@
+{
+	// Compiler Options
+	"compilerOptions": {
+		// Target Environment and Module System
+		"module": "commonjs",
+		"target": "es2022",
+		"lib": [
+			"es2022"
+		],
+		"types": [],
+		"moduleDetection": "force",
+		// Code Generation and Output
+		"sourceMap": true,
+		"declaration": true,
+		"declarationMap": true,
+		"outDir": "./dist", // Add this line to specify the output directory
+		"skipLibCheck": true,
+		// Type Checking and Diagnostics
+		"noUncheckedIndexedAccess": true,
+		"noUncheckedSideEffectImports": true,
+		"exactOptionalPropertyTypes": true,
+		"noFallthroughCasesInSwitch": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"strict": true,
+	}
+}

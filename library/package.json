@@ -1,0 +1,37 @@
+{
+	"name": "@lvt/aici-library",
+	"version": "1.0.404",
+	"author": "Shawn Zernik",
+	"license": "AGPL-3.0-or-later",
+	"description": "Artificial Intelligence Continuous Improvement (Aici)",
+	"keywords": [
+		"ai",
+		"llm",
+		"openai",
+		"chatgtp",
+		"chat",
+		"rag",
+		"agent"
+	],
+	"scripts": {
+		"clean": "rm -rf dist node_modules package-lock.json ../*.tgz",
+		"build": "npm install && node build.js",
+		"test": "npx jest --runInBand --detectOpenHandles --forceExit"
+	},
+	"type": "commonjs",
+	"dependencies": {},
+	"devDependencies": {
+		"@types/jest": "^29.5.14",
+		"jest": "^29.7.0",
+		"ts-jest": "^29.1.1",
+		"typescript": "^5.9.2"
+	},
+	"jest": {
+		"preset": "ts-jest",
+		"testEnvironment": "node",
+		"testMatch": [
+			"**/*.test.ts",
+			"**/*.tests.ts"
+		]
+	}
+}

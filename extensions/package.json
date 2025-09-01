@@ -1,0 +1,189 @@
+{
+	"name": "aici",
+	"version": "1.0.38",
+	"author": "Shawn Zernik",
+	"publisher": "LagoVistaTechnologies",
+	"license": "AGPL-3.0-or-later",
+	"description": "Artificial Intelligence Continuous Improvement (Aici)",
+	"keywords": [
+		"ai",
+		"llm",
+		"openai",
+		"chatgpt",
+		"chat",
+		"rag",
+		"agent"
+	],
+	"main": "dist/index.js",
+	"scripts": {
+		"clean": "rm -rf dist node_modules static package-lock.json *.vsix ../tracelog.json ../context.md",
+		"build": "npm install && npx tsc -p tsconfig.json",
+		"watch": "npm install && npx tsc -p tsconfig.json --watch",
+		"run": "node ./dist/index.js",
+		"test": "npx jest --runInBand --detectOpenHandles --forceExit",
+		"package": "node increment-version.js && npx vsce package --allow-missing-repository"
+	},
+	"type": "commonjs",
+	"dependencies": {
+		"@lvt/aici-library": "file:../lvt-aici-library-1.0.404.tgz",
+		"ignore": "^5.3.1",
+		"json5": "^2.2.3",
+		"openai": "^5.15.0"
+	},
+	"devDependencies": {
+		"@types/jest": "^29.5.14",
+		"@types/node": "^24.1.0",
+		"@types/vscode": "^1.102.0",
+		"@vscode/vsce": "^3.6.0",
+		"jest": "^29.7.0",
+		"ts-jest": "^29.1.1",
+		"typescript": "^5.9.2",
+		"vsce": "^2.15.0",
+		"vscode": "^1.1.37"
+	},
+	"jest": {
+		"preset": "ts-jest",
+		"testEnvironment": "node",
+		"testMatch": [
+			"**/*.test.ts",
+			"**/*.tests.ts"
+		]
+	},
+	"activationEvents": [
+		"onCommand:aici.openHelp",
+		"onCommand:aici.openChat",
+		"onCommand:aici.collectPaths",
+		"onCustomEditor:aici.chat",
+		"onLanguage:aici-chat",
+		"onCommand:aici.openSettings"
+	],
+	"engines": {
+		"vscode": "^1.102.0"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "aici.openHelp",
+				"title": "Open Aici Help"
+			},
+			{
+				"command": "aici.openChat",
+				"title": "Open Aici Chat"
+			},
+			{
+				"command": "aici.collectPaths",
+				"title": "Send to Aici Chat"
+			},
+			{
+				"command": "aici.openSettings",
+				"title": "Open Aici Settings"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "aici.openChat",
+				"key": "ctrl+shift+c",
+				"when": "!terminalFocus"
+			}
+		],
+		"menus": {
+			"explorer/context": [
+				{
+					"command": "aici.collectPaths",
+					"group": "navigation",
+					"when": "resourceScheme == file"
+				}
+			]
+		},
+		"languages": [
+			{
+				"id": "aici-chat",
+				"aliases": [
+					"Aici Conversation"
+				],
+				"extensions": [
+					".convo"
+				],
+				"icon": {
+					"light": "static/chat-text-light.svg",
+					"dark": "static/chat-text-dark.svg"
+				}
+			}
+		],
+		"customEditors": [
+			{
+				"viewType": "aici.chat",
+				"displayName": "Aici Chat",
+				"selector": [
+					{
+						"filenamePattern": "*.convo"
+					}
+				],
+				"priority": "default",
+				"icon": {
+					"light": "static/chat-text.svg",
+					"dark": "static/chat-text.svg"
+				}
+			}
+		],
+		"configuration": {
+			"title": "Aici",
+			"properties": {
+				"aici.aiApi": {
+					"type": "string",
+					"scope": "resource",
+					"default": "",
+					"description": "AI provider key."
+				},
+				"aici.aiUrl": {
+					"type": "string",
+					"scope": "resource",
+					"default": "",
+					"description": "AI endpoint URL."
+				},
+				"aici.aiModel": {
+					"type": "string",
+					"scope": "resource",
+					"default": "",
+					"description": "Default model."
+				},
+				"aici.ignoreRegex": {
+					"type": "array",
+					"scope": "resource",
+					"default": [],
+					"description": "Array of regex strings. If a path matches any, it is ignored.",
+					"items": {
+						"type": "string"
+					}
+				},
+				"aici.aiModels": {
+					"type": "array",
+					"scope": "resource",
+					"default": [],
+					"description": "Array of regex strings. If a path matches any, it is ignored.",
+					"items": {
+						"type": "string"
+					}
+				},
+				"aici.aiRetries": {
+					"type": "number",
+					"scope": "resource",
+					"default": 3,
+					"description": "Number of times to retry failed AI requests."
+				},
+				"aici.aiRetryDelaySeconds": {
+					"type": "number",
+					"scope": "resource",
+					"default": 10,
+					"description": "Base seconds to wait between retry attempts. Wait used is attemptIndex * this value (seconds)."
+				},
+				"aici.updateRetries": {
+					"type": "number",
+					"scope": "resource",
+					"default": 3,
+					"description": "Number of times to retry failed command executions during /update."
+				}
+			}
+		}
+	}
+}

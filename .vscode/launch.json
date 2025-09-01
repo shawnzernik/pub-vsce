@@ -1,0 +1,41 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "extensions: npm run test",
+			"type": "node",
+			"request": "launch",
+			"runtimeExecutable": "npm",
+			"args": [
+				"run",
+				"test"
+			],
+			"console": "integratedTerminal",
+			"cwd": "${workspaceFolder}/extensions",
+			"internalConsoleOptions": "neverOpen"
+		},
+		{
+			"type": "extensionHost",
+			"request": "launch",
+			"name": "extensions",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/extensions",
+			],
+			"outFiles": [
+				"${workspaceFolder}/extensions/dist/**/*.js",
+			],
+			"skipFiles": [
+				"<node_internals>/**",
+			],
+			"internalConsoleOptions": "openOnSessionStart",
+			"autoAttachChildProcesses": true,
+			"sourceMaps": true,
+			"trace": {
+				"logFile": "${workspaceFolder}/tracelog.json"
+			},
+			"env": {},
+			"preLaunchTask": "task - watch"
+		}
+	]
+}
