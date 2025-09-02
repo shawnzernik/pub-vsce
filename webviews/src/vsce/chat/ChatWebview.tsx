@@ -30,6 +30,10 @@ interface State {
 	status: ResponseStatus;
 	attachments: File[];
 	conversation?: ConversationDto;
+	config: {
+		tokenLengthDivisor?: number;
+		[key: string]: any;
+	};
 }
 interface Properties { }
 
@@ -49,7 +53,10 @@ export class ChatWebview extends React.Component<Properties, State> {
 			},
 			metrics: { requestTokens: 0, responseTokens: 0, seconds: 0 },
 			status: "idle",
-			attachments: []
+			attachments: [],
+			config: {
+				tokenLengthDivisor: 3.5
+			}
 		};
 	}
 
@@ -76,6 +83,23 @@ export class ChatWebview extends React.Component<Properties, State> {
 		} catch {
 			return undefined;
 		}
+	}
+
+	private approximateTokens(text: string): number {
+		if (!text) return 0;
+		const divisor = this.state.config.tokenLengthDivisor ?? 3.5;
+		return Math.ceil(text.length / divisor);
+	}
+
+	private calculateApproxPromptTokens(convo: ConversationDto): number {
+		const msgs = convo.messages || [];
+		let total = 0;
+		for (const msg of msgs) {
+			if (msg.role !== "assistant") {
+				total += this.approximateTokens(msg.content);
+			}
+		}
+		return total;
 	}
 
 	private changeFile(contents: string): void {
@@ -113,13 +137,17 @@ export class ChatWebview extends React.Component<Properties, State> {
 		const currentMsgs = Array.isArray(convo.messages) ? convo.messages : [];
 		convo.messages = [...currentMsgs, { role: "user", content }];
 
-		this.postMessageClient?.sendAiChat(convo, this.state.aiModel);
-
+		const approxPromptTokens = this.calculateApproxPromptTokens(convo);
 		this.setState({
+			metrics: { requestTokens: approxPromptTokens, responseTokens: 0, seconds: 0 },
+			status: "streaming",
 			attachments: [],
 			message: { role: "user", content: "" },
-			status: "streaming"
+			file: this.state.file,
+			conversation: convo,
 		});
+
+		this.postMessageClient?.sendAiChat(convo, this.state.aiModel);
 	}
 
 	private onResendConversation(convo: ConversationDto): void {
@@ -143,11 +171,31 @@ export class ChatWebview extends React.Component<Properties, State> {
 		this.setState({ message: { role: "user", content: content.trim() } });
 	}
 
+	private promptTokens(): number {
+		if (!this.state.conversation?.messages) return 0;
+		const msgs = this.state.conversation.messages;
+		let sum = 0;
+		for (let i = 0; i < msgs.length - 1; i++) {
+			const tok = msgs[i]?.tokenCount ?? 0;
+			sum += tok;
+		}
+		return sum;
+	}
+
+	private completionTokens(): number {
+		if (!this.state.conversation?.messages) return 0;
+		const msgs = this.state.conversation.messages;
+		const last = msgs[msgs.length - 1];
+		if (!last || last.role.toLowerCase() !== "assistant") return 0;
+		return last.tokenCount ?? 0;
+	}
+
 	private tokensPerSecond(): string {
-		const total = (this.state.metrics.requestTokens || 0) + (this.state.metrics.responseTokens || 0);
+		const prompt = this.promptTokens();
+		const completion = this.completionTokens();
+		const total = prompt + completion;
 		const s = this.state.metrics.seconds || 0;
-		if (!s)
-			return "0.00";
+		if (!s) return "0.00";
 		const tps = total / s;
 		return tps.toFixed(2);
 	}
@@ -191,6 +239,14 @@ export class ChatWebview extends React.Component<Properties, State> {
 		const modelOptions = this.state.aiModels || [];
 
 		const statusLabel = this.state.status.charAt(0).toUpperCase() + this.state.status.slice(1);
+		// Compute prompt tokens with estimate fallback when zero during streaming
+		let promptTokens = this.state.metrics.requestTokens;
+		if (this.state.status === "streaming" && promptTokens === 0 && this.state.conversation) {
+			promptTokens = this.calculateApproxPromptTokens(this.state.conversation);
+		}
+
+		// Use actual tokens on idle
+		const completionTokens = this.state.status === "idle" ? this.completionTokens() : this.state.metrics.responseTokens;
 
 		return (
 			<Flex direction="column" style={{ height: "100vh", minHeight: "0", overflowX: "hidden" }}>
@@ -303,8 +359,8 @@ export class ChatWebview extends React.Component<Properties, State> {
 					}}
 				>
 					<span>Status:<br /> {statusLabel}</span>
-					<span>Prompt:<br /> {this.state.metrics.requestTokens}</span>
-					<span>Completion:<br /> {this.state.metrics.responseTokens}</span>
+					<span>Prompt:<br /> {promptTokens}</span>
+					<span>Completion:<br /> {completionTokens}</span>
 					<span>Seconds:<br /> {this.state.metrics.seconds.toFixed(1)}</span>
 					<span>Tokens/Second:<br /> {this.tokensPerSecond()}</span>
 				</Flex>

@@ -31,6 +31,7 @@ export class Connection implements IConnection {
 	public updated: ConnectionUpdater;
 
 	private openai: OpenAI;
+	private streamingTokenCount: number = 0;
 
 	public constructor(url: string, key: string = "", updater: ConnectionUpdater = () => { }, options: ConnectionOptions = {}) {
 		this.url = url;
@@ -120,7 +121,7 @@ export class Connection implements IConnection {
 
 	private initializeResponse(request: Request): void {
 		this.response.id = request.id || Uuid.asString();
-		this.response.message = { role: "assistant", content: "" };
+		this.response.message = { role: "assistant", content: "", tokenCount: 0 };
 		this.response.metrics = { requestTokens: 0, responseTokens: 0, seconds: 0 };
 		this.response.model = request.model;
 		this.response.status = "streaming";
@@ -162,6 +163,8 @@ export class Connection implements IConnection {
 			console.info(`[Aici][OpenAI] Attempt ${attempt}/${maxAttempts} starting (model=${request.model}).`);
 			// Reset streaming state for each attempt
 			this.response.message.content = "";
+			this.response.message.tokenCount = 0;
+			this.streamingTokenCount = 0;
 			this.response.metrics.responseTokens = 0;
 			this.response.metrics.seconds = (Date.now() - started) / 1000;
 			this.response.status = "streaming";
@@ -207,8 +210,11 @@ export class Connection implements IConnection {
 						// delta.content is typical for streamed assistant text
 						if (typeof delta?.content === "string" && delta.content.length > 0) {
 							this.response.message.content += delta.content;
+							const newTokens = Connection.approxTokensFromText(delta.content);
+							this.streamingTokenCount += newTokens;
+							this.response.message.tokenCount = Connection.approxTokensFromText(this.response.message.content);
 							this.response.metrics.seconds = (Date.now() - started) / 1000;
-							this.response.metrics.responseTokens = Connection.approxTokensFromText(this.response.message.content);
+							this.response.metrics.responseTokens = this.streamingTokenCount;
 							this.response.status = "streaming";
 							this.updated(this);
 						}
@@ -217,7 +223,8 @@ export class Connection implements IConnection {
 						if (first?.finish_reason) {
 							// finalize
 							this.response.message.content = this.response.message.content;
-							this.response.metrics.responseTokens = Connection.approxTokensFromText(this.response.message.content);
+							this.response.message.tokenCount = Connection.approxTokensFromText(this.response.message.content);
+							this.response.metrics.responseTokens = this.response.message.tokenCount;
 							this.response.metrics.seconds = (Date.now() - started) / 1000;
 							this.response.status = "idle";
 							this.updated(this);
@@ -233,7 +240,8 @@ export class Connection implements IConnection {
 				// Finalize if stream ended without explicit finish_reason
 				if (this.response.status === "streaming") {
 					this.response.message.content = this.response.message.content;
-					this.response.metrics.responseTokens = Connection.approxTokensFromText(this.response.message.content);
+					this.response.message.tokenCount = Connection.approxTokensFromText(this.response.message.content);
+					this.response.metrics.responseTokens = this.response.message.tokenCount;
 					this.response.metrics.seconds = (Date.now() - started) / 1000;
 					this.response.status = "idle";
 					this.updated(this);

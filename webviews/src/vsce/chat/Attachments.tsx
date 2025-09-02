@@ -45,7 +45,7 @@ export class Attachments extends React.Component<Properties> {
 							<tr key={i} onDoubleClick={this.remove.bind(this, i)}>
 								<td>{f.name}</td>
 								<td>{f.contents.length}</td>
-								<td>{f.contents.search("\n")}</td>
+								<td>{(f.contents.match(/\n/g)?.length ?? 0) + 1}</td>
 							</tr>
 						))}
 					</tbody>

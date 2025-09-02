@@ -10,4 +10,6 @@ export interface AiciConfig {
 	aiRetryDelaySeconds: number;
 
 	updateRetries: number;
+
+	tokenLengthDivisor: number;
 }

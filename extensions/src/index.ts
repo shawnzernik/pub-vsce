@@ -60,7 +60,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				}
 			}
 
-			const delivered = PostMessageServer.broadcastRepositoryFiles(files);
+			const delivered = [...PostMessageServer.servers].length > 0 ? PostMessageServer.broadcastRepositoryFiles(files) : 0;
 			if (delivered === 0)
 				vscode.window.showInformationMessage("Aici: No Chat webviews are open.");
 		})

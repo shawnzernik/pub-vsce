@@ -34,7 +34,7 @@
 		"webpack-cli": "^6.0.1"
 	},
 	"dependencies": {
-		"@lvt/aici-library": "file:../lvt-aici-library-1.0.404.tgz",
+		"@lvt/aici-library": "file:../lvt-aici-library-1.0.455.tgz",
 		"highlight.js": "^11.11.1",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",

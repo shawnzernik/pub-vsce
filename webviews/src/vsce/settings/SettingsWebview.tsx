@@ -33,7 +33,8 @@ export class SettingsWebview extends React.Component<Properties, State> {
 				ignoreRegex: [],
 				aiRetries: 3,
 				aiRetryDelaySeconds: 10,
-				updateRetries: 3
+				updateRetries: 3,
+				tokenLengthDivisor: 3.5
 			},
 			aiModelsText: "",
 			ignoreRegexText: ""
@@ -88,6 +89,7 @@ export class SettingsWebview extends React.Component<Properties, State> {
 		config.aiRetries = Number(config.aiRetries ?? 3);
 		config.aiRetryDelaySeconds = Number(config.aiRetryDelaySeconds ?? 10);
 		config.updateRetries = Number(config.updateRetries ?? 3);
+		config.tokenLengthDivisor = Number(config.tokenLengthDivisor ?? 3.5);
 
 		this.pmClient?.saveSettings(config);
 	}
@@ -229,6 +231,23 @@ export class SettingsWebview extends React.Component<Properties, State> {
 									this.setState({ config: next });
 								}}
 								placeholder="Retries for /update command files"
+							/>
+						</div>
+
+						<div>
+							<div style={labelStyle}>Token Length Divisor</div>
+							<input
+								type="number"
+								min={0.1}
+								step={0.1}
+								style={inputStyle}
+								value={String(config.tokenLengthDivisor ?? 3.5)}
+								onChange={(e) => {
+									const next = JsonHelper.copy<AiciConfig>(config);
+									next.tokenLengthDivisor = Number(e.target.value || 3.5);
+									this.setState({ config: next });
+								}}
+								placeholder="Divisor to estimate prompt tokens"
 							/>
 						</div>
 

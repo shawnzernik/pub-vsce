@@ -4,6 +4,7 @@ import { BasePostMessageClient } from "../BasePostMessageClient";
 import { ChatWebview } from "./ChatWebview";
 import { File } from "@lvt/aici-library/dist/llm/File";
 import { Dictionary } from "@lvt/aici-library/dist/Dictionary";
+
 import { Conversation as ConversationDto } from "@lvt/aici-library/dist/llm/Conversation";
 import { ChatRequest } from "@lvt/aici-library/dist/vsce/chat/ChatRequest";
 
@@ -23,6 +24,7 @@ export class PostMessageClient extends BasePostMessageClient {
 		ret[PostMessageTypes.AiChat] = this.onAiChat.bind(this);
 		ret[PostMessageTypes.RepositoryFiles] = this.onRepositoryFiles.bind(this);
 		ret[PostMessageTypes.AiModels] = this.onAiModels.bind(this);
+		ret[PostMessageTypes.SettingsLoaded] = this.onSettingsLoaded.bind(this);
 
 		return ret;
 	}
@@ -32,7 +34,6 @@ export class PostMessageClient extends BasePostMessageClient {
 	}
 
 	private onAiChat(postMessage: PostMessage<ChatRequest>) {
-		// Defensive checks: ensure we have a file loaded and a valid payload
 		if (!this.webview.state.file)
 			return;
 		const payload = postMessage.payload;
@@ -43,24 +44,19 @@ export class PostMessageClient extends BasePostMessageClient {
 		if (!incoming || !Array.isArray(incoming.messages))
 			return;
 
-		// Try parse the current conversation from the loaded file.
 		let currentConvo: ConversationDto | undefined = undefined;
 		try {
 			currentConvo = JSON.parse(this.webview.state.file.contents) as ConversationDto;
 			if (!Array.isArray(currentConvo?.messages)) currentConvo.messages = [];
 		} catch {
-			// couldn't parse existing file; fallback to replacing with incoming
 			currentConvo = undefined;
 		}
 
 		let newConvo: ConversationDto;
 
-		// If no current conversation or incoming looks like a full update (longer),
-		// use the incoming conversation as authoritative.
 		if (!currentConvo || (incoming.messages.length > (currentConvo.messages?.length ?? 0))) {
 			newConvo = incoming;
 		} else {
-			// Incoming is not longer than current: likely a small update (stream or error).
 			const incomingLast = incoming.messages.length > 0 ? incoming.messages[incoming.messages.length - 1] : undefined;
 			const isAssistant = incomingLast && incomingLast.role && incomingLast.role.toLowerCase() === "assistant";
 			const incomingText = (incomingLast?.content || "").trim();
@@ -72,22 +68,19 @@ export class PostMessageClient extends BasePostMessageClient {
 				const lastCurrRole = (lastCurr?.role || "").toLowerCase();
 
 				if (lastCurr && lastCurrRole === "assistant") {
-					// Streaming update: replace the last assistant message content (do NOT append).
 					if (incomingText !== lastCurrText) {
-						const replaced = currMsgs.slice(0, currMsgs.length - 1).concat([{ role: "assistant", content: incomingText }]);
+						const replaced = currMsgs.slice(0, currMsgs.length - 1).concat([{ role: "assistant", content: incomingText, tokenCount: incomingLast.tokenCount ?? 0 }]);
 						newConvo = {
 							dated: currentConvo.dated || new Date().toISOString(),
 							title: currentConvo.title || "",
 							messages: replaced
 						};
 					} else {
-						// identical -> no change
 						newConvo = currentConvo;
 					}
 				} else {
-					// Current last is not assistant -> append the incoming assistant message if different
 					if (incomingText !== lastCurrText) {
-						const appended = currMsgs.concat([{ role: "assistant", content: incomingText }]);
+						const appended = currMsgs.concat([{ role: "assistant", content: incomingText, tokenCount: incomingLast.tokenCount ?? 0 }]);
 						newConvo = {
 							dated: currentConvo.dated || new Date().toISOString(),
 							title: currentConvo.title || "",
@@ -98,15 +91,12 @@ export class PostMessageClient extends BasePostMessageClient {
 					}
 				}
 			} else {
-				// Not an assistant tail or empty text — safer to leave existing conversation alone.
 				newConvo = currentConvo;
 			}
 		}
 
-		// Create updated file contents without mutating inputs
 		const newFile = this.createUpdatedFile(this.webview.state.file, newConvo);
 
-		// Merge metrics using a snapshot of previous metrics for stable fallback
 		const prevMetrics = this.webview.state.metrics || { requestTokens: 0, responseTokens: 0, seconds: 0 };
 		const nextMetrics = {
 			requestTokens: payload.metrics?.requestTokens ?? prevMetrics.requestTokens,
@@ -116,16 +106,20 @@ export class PostMessageClient extends BasePostMessageClient {
 
 		const nextStatus = payload.status ?? "idle";
 
-		// Only update state/write back when contents actually change to avoid wiping history or redundant writes.
 		const oldContents = this.webview.state.file.contents;
 		if (oldContents === newFile.contents) {
-			// no file content change, but still update metrics/status
-			this.webview.setState({ metrics: nextMetrics, status: nextStatus });
+			this.webview.setState((_prevState, _props) => ({
+				metrics: nextMetrics,
+				status: nextStatus
+			}));
 			return;
 		}
 
-		this.webview.setState({ file: newFile, metrics: nextMetrics, status: nextStatus });
-		this.webview.postMessageClient?.sendFileChanged(newFile);
+		this.webview.setState((_prevState, _props) => ({
+			file: newFile,
+			metrics: nextMetrics,
+			status: nextStatus
+		}));
 	}
 
 	private onRepositoryFiles(postMessage: PostMessage<File[]>) {
@@ -154,6 +148,17 @@ export class PostMessageClient extends BasePostMessageClient {
 			aiModel: chosen
 		});
 	}
+
+	private onSettingsLoaded(postMessage: PostMessage<any>) {
+		const cfg = postMessage.payload || {};
+		this.webview.setState((_prevState) => ({
+			..._prevState,
+			config: cfg,
+			aiModelsText: (cfg.aiModels || []).join("\n"),
+			ignoreRegexText: (cfg.ignoreRegex || []).join("\n"),
+		}));
+	}
+
 
 	private createUpdatedFile(currentFile: File, conversation: ConversationDto): File {
 		return {

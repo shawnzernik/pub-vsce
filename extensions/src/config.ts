@@ -25,6 +25,9 @@ export class Config implements AiciConfig {
 	// Update workflow command execution retries
 	public updateRetries: number;
 
+	// Token length divisor for approximate token counting
+	public tokenLengthDivisor: number;
+
 	private constructor() {
 		this.aiApi = "";
 		this.aiUrl = "";
@@ -35,6 +38,7 @@ export class Config implements AiciConfig {
 		this.aiRetries = 3;
 		this.aiRetryDelaySeconds = 10;
 		this.updateRetries = 3;
+		this.tokenLengthDivisor = 3.5;
 	}
 
 	public static copy(original: AiciConfig): Config {
@@ -50,6 +54,7 @@ export class Config implements AiciConfig {
 		ret.aiRetries = (original as any).aiRetries ?? 3;
 		ret.aiRetryDelaySeconds = (original as any).aiRetryDelaySeconds ?? 10;
 		ret.updateRetries = (original as any).updateRetries ?? 3;
+		ret.tokenLengthDivisor = (original as any).tokenLengthDivisor ?? 3.5;
 
 		return ret;
 	}
@@ -72,6 +77,7 @@ export class Config implements AiciConfig {
 		ret.aiRetryDelaySeconds = vsceConfig.get<number>("aiRetryDelaySeconds", 10) ?? 10;
 
 		ret.updateRetries = vsceConfig.get<number>("updateRetries", 3) ?? 3;
+		ret.tokenLengthDivisor = vsceConfig.get<number>("tokenLengthDivisor", 3.5) ?? 3.5;
 
 		return ret;
 	}
@@ -88,6 +94,7 @@ export class Config implements AiciConfig {
 		settings["aici.aiRetries"] = this.aiRetries;
 		settings["aici.aiRetryDelaySeconds"] = this.aiRetryDelaySeconds;
 		settings["aici.updateRetries"] = this.updateRetries;
+		settings["aici.tokenLengthDivisor"] = this.tokenLengthDivisor;
 
 		repo.write(".vscode/settings.json", JSON.stringify(settings, null, "\t"));
 
