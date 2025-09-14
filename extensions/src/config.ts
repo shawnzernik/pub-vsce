@@ -1,113 +1,131 @@
 import * as vscode from "vscode";
 import * as json5 from "json5";
-import { AiciConfig } from "@lvt/aici-library/dist/vsce/AiciConfig";
 import { Repository } from "./system/Repository";
 
+export interface AiciConfig {
+	aiApi: string;
+	aiUrl: string;
+	aiModel: string;
+	aiRetries: number;
+	aiRetryDelaySeconds: number;
+	updateRetries: number;
+	buildBuildRetries: number;
+	aiKey: string;
+	aiModels: string[];
+	ignoreRegex: string[];
+}
+
 export class Config implements AiciConfig {
-	private static readonly aiKeySecretId = "aici.aiKey";
+	aiApi: string;
+	aiUrl: string;
+	aiModel: string;
+	aiRetries: number;
+	aiRetryDelaySeconds: number;
+	updateRetries: number;
+	buildBuildRetries: number;
+	aiKey: string;
+	aiModels: string[];
+	ignoreRegex: string[];
+
 	private static secretStorage: vscode.SecretStorage | undefined;
 
-	public static async setSecretStorage(context: vscode.ExtensionContext): Promise<void> {
+	public static async setSecretStorage(context: vscode.ExtensionContext) {
 		Config.secretStorage = context.secrets;
 	}
-
-	public aiApi: string;
-	public aiUrl: string;
-	public aiKey: string;
-	public aiModel: string;
-	public ignoreRegex: string[];
-	public aiModels: string[];
-
-	// Retry settings
-	public aiRetries: number;
-	public aiRetryDelaySeconds: number;
-
-	// Update workflow command execution retries
-	public updateRetries: number;
-
-	// Token length divisor for approximate token counting
-	public tokenLengthDivisor: number;
 
 	private constructor() {
 		this.aiApi = "";
 		this.aiUrl = "";
-		this.aiKey = "";
-		this.aiModel = "";
-		this.ignoreRegex = [];
-		this.aiModels = [];
+		this.aiModel = "gpt-4";
 		this.aiRetries = 3;
 		this.aiRetryDelaySeconds = 10;
 		this.updateRetries = 3;
-		this.tokenLengthDivisor = 3.5;
+		this.buildBuildRetries = 5;
+		this.aiKey = "";
+		this.aiModels = [];
+		this.ignoreRegex = [];
+	}
+
+	public static async create(uri: vscode.Uri): Promise<Config> {
+		const config = new Config();
+
+		try {
+			const repo = await Repository.instance(uri);
+			const settingsRaw = repo.read(".vscode/settings.json");
+			const settings = json5.parse(settingsRaw);
+
+			config.aiApi = settings["aici.aiApi"] ?? "";
+			config.aiUrl = settings["aici.aiUrl"] ?? "";
+			config.aiModel = settings["aici.aiModel"] ?? "gpt-4";
+			config.aiRetries = Number(settings["aici.aiRetries"] ?? 3);
+			config.aiRetryDelaySeconds = Number(settings["aici.aiRetryDelaySeconds"] ?? 10);
+			config.updateRetries = Number(settings["aici.updateRetries"] ?? 3);
+			config.buildBuildRetries = Number(settings["aici.buildBuildRetries"] ?? 5);
+
+			if (Array.isArray(settings["aici.ignoreRegex"]))
+				config.ignoreRegex = settings["aici.ignoreRegex"].map((r: any) => String(r));
+
+			if (Array.isArray(settings["aici.aiModels"]))
+				config.aiModels = settings["aici.aiModels"].map((r: any) => String(r));
+		} catch {
+			// ignore if settings.json missing or invalid
+		}
+
+		// Load secret aiKey from SecretStorage or environment
+		if (Config.secretStorage) {
+			config.aiKey = await Config.secretStorage.get("aici.aiKey") ?? "";
+		}
+
+		if (!config.aiKey) {
+			config.aiKey =
+				process.env["AICI_AIKEY"] ??
+				process.env["OPENAI_API_KEY"] ??
+				"";
+		}
+
+		return config;
 	}
 
 	public static copy(original: AiciConfig): Config {
 		const ret = new Config();
-		ret.aiKey = original.aiKey;
-
-		ret.aiApi = original.aiApi;
-		ret.aiModel = original.aiModel;
-		ret.aiModels = original.aiModels;
-		ret.aiUrl = original.aiUrl;
-		ret.ignoreRegex = original.ignoreRegex;
-
+		ret.aiApi = (original as any).aiApi ?? "";
+		ret.aiUrl = (original as any).aiUrl ?? "";
+		ret.aiModel = (original as any).aiModel ?? "gpt-4";
 		ret.aiRetries = (original as any).aiRetries ?? 3;
 		ret.aiRetryDelaySeconds = (original as any).aiRetryDelaySeconds ?? 10;
 		ret.updateRetries = (original as any).updateRetries ?? 3;
-		ret.tokenLengthDivisor = (original as any).tokenLengthDivisor ?? 3.5;
+		ret.buildBuildRetries = (original as any).buildBuildRetries ?? 5;
+		ret.aiKey = (original as any).aiKey ?? "";
+		ret.aiModels = (original as any).aiModels ?? [];
+		ret.ignoreRegex = (original as any).ignoreRegex ?? [];
 
 		return ret;
 	}
 
-	public static async create(resource: vscode.Uri): Promise<Config> {
-		Config.ensureSecretStorage();
+	public async save(uri: vscode.Uri): Promise<void> {
+		if (!Config.secretStorage) throw new Error("SecretStorage not initialized");
 
-		const vsceConfig = vscode.workspace.getConfiguration("aici", resource);
-		const ret = new Config();
-
-		ret.aiKey = (await Config.secretStorage!.get(Config.aiKeySecretId)) || "";
-
-		ret.aiApi = vsceConfig.get<string>("aiApi", "") || "";
-		ret.aiModel = vsceConfig.get<string>("aiModel", "") || "";
-		ret.aiModels = vsceConfig.get<string[]>("aiModels", []) || [];
-		ret.aiUrl = vsceConfig.get<string>("aiUrl", "") || "";
-		ret.ignoreRegex = vsceConfig.get<string[]>("ignoreRegex", []) || [];
-
-		ret.aiRetries = vsceConfig.get<number>("aiRetries", 3) ?? 3;
-		ret.aiRetryDelaySeconds = vsceConfig.get<number>("aiRetryDelaySeconds", 10) ?? 10;
-
-		ret.updateRetries = vsceConfig.get<number>("updateRetries", 3) ?? 3;
-		ret.tokenLengthDivisor = vsceConfig.get<number>("tokenLengthDivisor", 3.5) ?? 3.5;
-
-		return ret;
-	}
-
-	public async save(resource: vscode.Uri): Promise<void> {
-		const repo = await Repository.instance(resource);
-		const settings = this.readSettings(repo);
+		const repo = await Repository.instance(uri);
+		const settingsRaw = repo.read(".vscode/settings.json");
+		let settings: any = {};
+		try {
+			settings = json5.parse(settingsRaw);
+		} catch {
+			settings = {};
+		}
 
 		settings["aici.aiApi"] = this.aiApi;
-		settings["aici.aiModel"] = this.aiModel;
-		settings["aici.aiModels"] = this.aiModels;
 		settings["aici.aiUrl"] = this.aiUrl;
-		settings["aici.ignoreRegex"] = this.ignoreRegex;
+		settings["aici.aiModel"] = this.aiModel;
 		settings["aici.aiRetries"] = this.aiRetries;
 		settings["aici.aiRetryDelaySeconds"] = this.aiRetryDelaySeconds;
 		settings["aici.updateRetries"] = this.updateRetries;
-		settings["aici.tokenLengthDivisor"] = this.tokenLengthDivisor;
+		settings["aici.buildBuildRetries"] = this.buildBuildRetries;
+		settings["aici.ignoreRegex"] = this.ignoreRegex;
+		settings["aici.aiModels"] = this.aiModels;
 
 		repo.write(".vscode/settings.json", JSON.stringify(settings, null, "\t"));
 
-		await Config.secretStorage?.store(Config.aiKeySecretId, this.aiKey);
-	}
-
-	private static ensureSecretStorage(): void {
-		if (!Config.secretStorage)
-			throw new Error("You must call Config.setSecretStorage(context: vscode.ExtensionContext) first!");
-	}
-
-	private readSettings(repo: Repository): any {
-		const settingJson = repo.read(".vscode/settings.json");
-		return json5.parse(settingJson);
+		await Config.secretStorage.store("aici.aiKey", this.aiKey);
 	}
 }

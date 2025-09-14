@@ -1,73 +1,125 @@
-# Aici - AI Continuous Improvement
+# Aici - AI Continuous Improvement VS Code Extension
 
-© 2025 Shawn Zernik
-
-This program is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of **MERCHANTABILITY** or **FITNESS FOR A PARTICULAR PURPOSE**. See the GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License along with this program. If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
+Artificial Intelligence Continuous Improvement (Aici) integrates AI-powered chat, code workflows, and automated coding assistance into Visual Studio Code using OpenAI models.
 
 ---
 
-## Key Bindings
+## Features
 
-By default, the following key bindings are used:
+- Interactive AI Chat Interface with multi-model support
+- AI Workflows:
+  - `/update` for automated file edits
+  - `/commit` for AI-generated git commit messages
+  - `/plan` for change planning
+  - `/build` for AI-assisted build, clean, and error fixing
+- Secure storage of AI keys with VS Code SecretStorage
+- Easy configuration of AI API endpoint, models, and retry settings
+- Custom editor for `.convo` conversation files
+- Snippet saving and integrated Help and Settings UI
+- Real-time metrics and streaming response display
 
-- **Ctrl+Shift+C** — Creates a convo file and opens chat
+---
 
-Help and Settings are available from the Chat header (top right, question mark and gear icons) or via the Command Palette:
-- “Aici: Open Aici Help”
-- “Aici: Open Aici Settings”
+## Installation
+
+### Prerequisites
+
+- Node.js 16 or later
+- Visual Studio Code
+
+### Steps
+
+1. Clone the repository
+2. Navigate to `extensions` folder
+3. Run:
+
+```bash
+npm install
+npm run build
+```
+
+4. To package the extension for distribution:
+
+```bash
+npm run package
+```
+
+---
+
+## Usage
+
+### File Associations
+
+- `.convo` files open with Aici Chat custom editor
+- Language ID: `aici-chat`
+
+### Commands & Shortcuts
+
+- `Ctrl+Shift+C` — Open new chat conversation or open `.convo` file in chat editor
+- Command Palette:
+  - `Aici: Open Aici Chat`
+  - `Aici: Open Aici Help`
+  - `Aici: Open Aici Settings`
+- Explorer Context Menu:
+  - Right-click files/folders → `Send to Aici Chat`
+
+### AI Workflows
+
+Start your chat message with the following commands:
+
+- `/update` — AI-driven file updates
+- `/commit` — AI-generated git commit messages
+- `/plan` — AI change plan summaries
+- `/build` — AI assisted build and error diagnostics
+
+### Running Tests
+
+```bash
+npm run test
+```
 
 ---
 
 ## Configuration
 
-Secrets (AI Key) are stored securely in VS Code SecretStorage and should not be put into settings.json.
+Configure workspace-level settings in `.vscode/settings.json` or via the Settings UI:
 
-- Open the Settings UI using the gear icon in the Chat header, or via the Command Palette “Aici: Open Aici Settings”.
-- Set or clear your AI Key from the Settings UI. It is stored in VS Code Secrets and never written to disk.
-- Non-secret values can be edited in the Settings UI or directly in your `~/.vscode/settings.json`.
-
-Optional: You can set an environment variable as a fallback for the AI Key (used if no secret is stored):
-- macOS (launchd):
-```
-launchctl setenv AICI_AIKEY "sk-..."
-launchctl getenv AICI_AIKEY
-```
-- Shell session example:
-```
-export AICI_AIKEY="sk-..."
-```
-
-Example non-secret settings in `~/.vscode/settings.json`:
-```json
-{
-	"aici.aiApi": "openai",
-	"aici.aiUrl": "https://api.openai.com/v1/chat/completions",
-	"aici.aiModel": "gpt-4o-mini",
-	"aici.ignoreRegex": [
-		".*/node_modules/.*"
-	],
-	"aici.aiModels": [
-		"gpt-5-nano",
-		"gpt-4o-mini",
-		"gpt-5-mini",
-		"gpt-4o",
-		"chatgpt-4o-latest"
-	]
-}
-```
-
-Note:
-- The AI Key is stored via the Aici Settings UI in VS Code Secrets. Do not include it in settings.json.
-- Saving from the Settings UI updates non-secret fields in `~/.vscode/settings.json`. Secrets remain in SecretStorage.
+- `aici.aiApi`: AI API provider (e.g., "openai")
+- `aici.aiUrl`: AI API endpoint URL
+- `aici.aiModel`: Default AI model
+- `aici.aiModels`: List of selectable AI models
+- `aici.ignoreRegex`: Array of regex patterns to ignore files/folders
+- Retry settings: `aici.aiRetries`, `aici.aiRetryDelaySeconds`, `aici.updateRetries`, `aici.buildBuildRetries`
+- AI Key (`aici.aiKey`) stored securely in VS Code SecretStorage
 
 ---
 
-## Usage Notes
+## Development
 
-- When writing or reading files programmatically, resolve these relative paths against the repository root.
-- Prompts and workflows expect all file paths to be relative paths with no URI scheme prefix.
-- This standardization reduces confusion and improves reliability in LLM interaction.
+- Source code under `extensions` folder
+- Shared libraries under `library`
+- React-based UI components in `webviews`
+- Build using defined VS Code tasks:
+  - `task - build` to build all
+  - `task - watch` for incremental builds
+- Debug using `.vscode/launch.json`
+- TypeScript with strict typings and Jest tests
+
+---
+
+## Contributing
+
+Contributions welcome! Please follow code style and open issues or pull requests on GitHub.
+
+---
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3 or later (AGPL-3.0-or-later). See `LICENSE.md` for details.
+
+---
+
+## Maintainer
+
+Shawn Zernik  
+GitHub: [shawnzernik/pub-vsce](https://github.com/shawnzernik/pub-vsce)

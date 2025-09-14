@@ -150,7 +150,7 @@ export class Repository {
 	private async getConfig(): Promise<Config> {
 		if (!this.cachedConfig)
 			this.cachedConfig = await Config.create(this.scope);
-		return this.cachedConfig;
+		return this.cachedConfig!;
 	}
 
 	public makeAbsolute(original: string): string {

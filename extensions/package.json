@@ -1,6 +1,6 @@
 {
 	"name": "aici",
-	"version": "1.0.41",
+	"version": "1.0.43",
 	"author": "Shawn Zernik",
 	"publisher": "LagoVistaTechnologies",
 	"license": "AGPL-3.0-or-later",
@@ -25,7 +25,8 @@
 	},
 	"type": "commonjs",
 	"dependencies": {
-		"@lvt/aici-library": "file:../lvt-aici-library-1.0.455.tgz",
+		"@lvt/aici-library": "file:../lvt-aici-library-1.0.554.tgz",
+		"@types/json5": "^0.0.30",
 		"ignore": "^5.3.1",
 		"json5": "^2.2.3",
 		"openai": "^5.15.0",
@@ -184,11 +185,11 @@
 					"default": 3,
 					"description": "Number of times to retry failed command executions during /update."
 				},
-				"aici.tokenLengthDivisor": {
+				"aici.buildBuildRetries": {
 					"type": "number",
 					"scope": "resource",
-					"default": 3.5,
-					"description": "Divisor to estimate prompt tokens from text length."
+					"default": 5,
+					"description": "Number of times to retry failed build command executions."
 				}
 			}
 		}

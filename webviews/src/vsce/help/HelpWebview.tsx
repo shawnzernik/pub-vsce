@@ -12,16 +12,15 @@ interface State {
 interface Properties { }
 
 export class HelpWebview extends React.Component<Properties, State> {
+	public override state: State = {
+		response: "",
+	};
 	private pmClient: PostMessageClient;
 
 	public constructor(props: Properties) {
 		super(props);
 		this.pmClient = new PostMessageClient(this);
 	}
-
-	public override state: State = {
-		response: "",
-	};
 
 	private helloClicked(): void {
 		this.pmClient!.send(PostMessageTypes.Hello, null);
@@ -72,6 +71,13 @@ export class HelpWebview extends React.Component<Properties, State> {
 }
 			`}</pre>
 			<p>The AI Key is stored securely in VS Code SecretStorage via the Aici Settings UI. You may also set it via environment variables (fallback): <code>AICI_AIKEY</code> or <code>OPENAI_API_KEY</code>.</p>
+
+			<h2>Status and Metrics</h2>
+			<p>
+				The <b>Status</b> indicates the current operation state, e.g., "working" or "idle".<br />
+				Prompt and Completion token counts reflect the most recent AI response (the last message). For workflows, each step updates these values to the latest step; they are not summed across steps.<br />
+				For plain chat usage, these reflect the last individual request only.
+			</p>
 
 			<h2> Post Message Testing</h2>
 			<Flex>

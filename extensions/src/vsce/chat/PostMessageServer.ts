@@ -6,7 +6,6 @@ import { PostMessageTypes } from "@lvt/aici-library/dist/vsce/PostMessageTypes";
 import { BasePostMessageServer } from "../BasePostMessageServer";
 import { File } from "@lvt/aici-library/dist/llm/File";
 import { Conversation } from "@lvt/aici-library/dist/llm/Conversation";
-import { Connection } from "../../llm/Connection";
 import { Connection as OpenAiConnection } from "../../llm/openai/Connection";
 import { Config } from "../../config";
 import { Uuid } from "@lvt/aici-library/dist/Uuid";
@@ -26,6 +25,8 @@ export class PostMessageServer extends BasePostMessageServer {
 	private getSnapshot: (() => File) | undefined;
 	private fileChangedCallback: ((file: File) => void) | undefined;
 	private resourceUri: vscode.Uri | undefined;
+
+	private lastKnownMetrics: Metrics = { requestTokens: 0, responseTokens: 0, seconds: 0 };
 
 	public constructor(panel: vscode.WebviewPanel, resourceUri?: vscode.Uri, getSnapshot?: () => File, fileChangedCallback?: (file: File) => void) {
 		super(panel);
@@ -55,18 +56,6 @@ export class PostMessageServer extends BasePostMessageServer {
 		return ret;
 	}
 
-	private estimatePromptTokens(conversation: Conversation, divisor: number): number {
-		if (!conversation?.messages) return 0;
-		let length = 0;
-		for (const message of conversation.messages) {
-			if ((message.role || "").toLowerCase() !== "assistant") {
-				length += (message.content || "").length;
-			}
-		}
-		if (divisor <= 0) divisor = 3.5;
-		return Math.ceil(length / divisor);
-	}
-
 	private async handleAiChat(message: PostMessage<ChatRequest>): Promise<void> {
 		if (!message.payload || !message.payload.conversation)
 			return;
@@ -85,7 +74,7 @@ export class PostMessageServer extends BasePostMessageServer {
 			const errMsg = (err as Error)?.message || "Unknown error";
 			const errConvo = ConversationManager.mergeAssistantMessage(
 				message.payload.conversation,
-				{ messages: [{ role: "assistant", content: `Error: ${errMsg}`, tokenCount: 0 }] } as Conversation
+				{ messages: [{ role: "assistant", content: `Error: ${errMsg}` }] } as Conversation
 			);
 			const newFileError = this.createUpdatedFile(
 				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
@@ -100,29 +89,15 @@ export class PostMessageServer extends BasePostMessageServer {
 		if (!message.payload || !message.payload.conversation)
 			return;
 
-		const divisor = config.tokenLengthDivisor ?? 3.5;
 		const modelToUse = ConversationManager.resolveModel(message.payload.model, config.aiModel || "");
 
-		const updater = (me: Connection) => {
-			let promptTokens = me.response.metrics.requestTokens;
-			if (promptTokens === 0) {
-				promptTokens = this.estimatePromptTokens(message.payload.conversation, divisor);
-			}
-
-			const merged = ConversationManager.mergeAssistantMessage(message.payload.conversation, { messages: [{ role: "assistant", content: me.response.message.content, tokenCount: me.response.message.tokenCount }] } as Conversation);
-			const newFile = this.createUpdatedFile(
-				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
-				merged
-			);
-
-			this.sendAiChat(merged, { ...me.response.metrics, requestTokens: promptTokens }, "streaming");
-			this.sendFileChanged(newFile);
-		};
+		// Notify UI we are working; supply last known non-zero metrics if possible to avoid reset
+		this.sendAiChat(message.payload.conversation, this.lastKnownMetrics, "working");
 
 		const conn = new OpenAiConnection(
 			config.aiUrl,
 			config.aiKey,
-			updater,
+			() => { /* no streaming updater */ },
 			{
 				retries: config.aiRetries ?? 3,
 				retryDelaySeconds: config.aiRetryDelaySeconds ?? 10,
@@ -135,58 +110,47 @@ export class PostMessageServer extends BasePostMessageServer {
 			messages: message.payload.conversation.messages
 		};
 
-		try {
-			await conn.send(request);
+		await conn.send(request);
 
-			const mergedFinal = ConversationManager.mergeAssistantMessage(
-				message.payload.conversation,
-				{ messages: [{ role: "assistant", content: conn.response.message.content, tokenCount: conn.response.message.tokenCount }] } as Conversation
-			);
+		// Merge final assistant content
+		const mergedFinal = ConversationManager.mergeAssistantMessage(
+			message.payload.conversation,
+			{ messages: [{ role: "assistant", content: conn.response.message.content }] } as Conversation
+		);
 
-			// Use actual tokens at completion
-			const finalMetrics = { ...conn.response.metrics };
-			const newFileFinal = this.createUpdatedFile(
-				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
-				mergedFinal
-			);
-			this.sendAiChat(mergedFinal, finalMetrics, "idle");
-			this.sendFileChanged(newFileFinal);
-		} catch (error) {
-			const errMsg = (error as Error)?.message || "Unknown error";
-			const errConvo = ConversationManager.mergeAssistantMessage(
-				message.payload.conversation,
-				{ messages: [{ role: "assistant", content: `Error: ${errMsg}`, tokenCount: 0 }] } as Conversation
-			);
-			const newFileError = this.createUpdatedFile(
-				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
-				errConvo
-			);
-			this.sendAiChat(errConvo, { requestTokens: 0, responseTokens: 0, seconds: 0 }, "error");
-			this.sendFileChanged(newFileError);
-		}
+		this.lastKnownMetrics = { ...conn.response.metrics };
+
+		const newFileFinal = this.createUpdatedFile(
+			this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
+			mergedFinal
+		);
+
+		this.sendAiChat(mergedFinal, this.lastKnownMetrics, "idle");
+		this.sendFileChanged(newFileFinal);
 	}
 
 	private async handleAiChatWorkflow(message: PostMessage<ChatRequest>, config: Config, workflowName: string): Promise<void> {
 		if (!message.payload || !message.payload.conversation)
 			return;
 
-		const divisor = config.tokenLengthDivisor ?? 3.5;
 		const modelToUse = ConversationManager.resolveModel(message.payload.model, config.aiModel || "");
 
 		const updater = (me: WorkflowBase) => {
-			let promptTokens = me.metrics.requestTokens;
-			if (promptTokens === 0 && me.request && me.request.messages) {
-				promptTokens = this.estimatePromptTokens({ dated: "", title: "", messages: me.request.messages }, divisor);
-			}
-
 			const convoCopy = JsonHelper.copy<Conversation>(message.payload.conversation);
 			convoCopy.messages = me.request!.messages;
-			const newFile = this.createUpdatedFile(
+
+			// Use lastKnownMetrics if current metrics are zero to prevent resets
+			const metricsToSend = (me.metrics.requestTokens || me.metrics.responseTokens || me.metrics.seconds)
+				? me.metrics
+				: this.lastKnownMetrics;
+
+			this.lastKnownMetrics = metricsToSend ?? this.lastKnownMetrics;
+
+			this.sendAiChat(convoCopy, metricsToSend, "working");
+			this.sendFileChanged(this.createUpdatedFile(
 				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
 				convoCopy
-			);
-			this.sendAiChat(convoCopy, { ...me.metrics, requestTokens: promptTokens }, "streaming");
-			this.sendFileChanged(newFile);
+			));
 		};
 
 		const repo = await Repository.instance(this.resourceUri!);
@@ -198,34 +162,21 @@ export class PostMessageServer extends BasePostMessageServer {
 			messages: message.payload.conversation.messages
 		};
 
-		try {
-			await workflow.sendRequest(request);
+		await workflow.sendRequest(request);
 
-			const convoCopyFinal = JsonHelper.copy<Conversation>(message.payload.conversation);
-			convoCopyFinal.messages = workflow.request!.messages;
+		const convoCopyFinal = JsonHelper.copy<Conversation>(message.payload.conversation);
+		convoCopyFinal.messages = workflow.request!.messages;
 
-			// Use actual metrics at completion
-			const finalMetrics = { ...workflow.metrics };
+		const finalMetrics = { ...workflow.metrics };
+		this.lastKnownMetrics = finalMetrics;
 
-			const newFileFinal = this.createUpdatedFile(
-				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
-				convoCopyFinal
-			);
-			this.sendAiChat(convoCopyFinal, finalMetrics, "idle");
-			this.sendFileChanged(newFileFinal);
-		} catch (error) {
-			const errMsg = (error as Error)?.message || "Unknown error";
-			const errConvo = ConversationManager.mergeAssistantMessage(
-				message.payload.conversation,
-				{ messages: [{ role: "assistant", content: `Error: ${errMsg}`, tokenCount: 0 }] } as Conversation
-			);
-			const newFileError = this.createUpdatedFile(
-				this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
-				errConvo
-			);
-			this.sendAiChat(errConvo, { requestTokens: 0, responseTokens: 0, seconds: 0 }, "error");
-			this.sendFileChanged(newFileError);
-		}
+		const newFileFinal = this.createUpdatedFile(
+			this.getSnapshot ? this.getSnapshot() : { name: "", contents: "" },
+			convoCopyFinal
+		);
+
+		this.sendAiChat(convoCopyFinal, finalMetrics, "idle");
+		this.sendFileChanged(newFileFinal);
 	}
 
 	public async handleSaveSnippet(message: PostMessage<{ text: string; filename?: string }>): Promise<void> {

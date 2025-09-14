@@ -1,18 +1,18 @@
 # Aici - AI Continuous Improvement
 
-Artificial Intelligence Continuous Improvement (Aici) is a VS Code extension integrating AI-powered chat, code review, and automated update workflows. It leverages OpenAI models and provides a rich interactive chat UI for developer assistance and continuous coding improvements.
+Artificial Intelligence Continuous Improvement (Aici) is a VS Code extension that integrates AI-powered chat, code review, and automated workflows leveraging OpenAI models.
 
 ---
 
 ## Features
 
-- Interactive AI Chat supporting multiple OpenAI models  
-- Automated update workflows with retry and error handling  
-- Secure AI key storage via VS Code SecretStorage  
-- Configurable AI endpoints, models, and ignore patterns  
-- Custom conversation editor with markdown rendering and editing  
-- Built-in help, settings, and snippet saving UI  
-- Supports retry logic for AI requests and command execution
+- Interactive AI chat supporting multiple OpenAI models
+- AI-driven workflows: `/update`, `/commit`, `/plan`, `/build`
+- Secure AI key storage with VS Code SecretStorage
+- Configurable AI API endpoint, models, regex for file ignoring, and retry parameters
+- Custom conversation editor for `.convo` JSON chat files
+- Snippet saving and integrated Help and Settings UI
+- Real-time streaming response and usage metrics display
 
 ---
 
@@ -20,21 +20,21 @@ Artificial Intelligence Continuous Improvement (Aici) is a VS Code extension int
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 16 or later  
-- [Visual Studio Code](https://code.visualstudio.com/)  
+- Node.js 16 or later
+- Visual Studio Code
 
 ### Setup
 
 Clone the repository and install dependencies:
 
-```bash
+```
 npm install
 npm run build
 ```
 
-To build and package the VS Code extension:
+To package the extension:
 
-```bash
+```
 npm run package
 ```
 
@@ -42,15 +42,32 @@ npm run package
 
 ## Usage
 
-In VS Code, use the following commands via the Command Palette or keybindings:
+### File Associations
 
-- **Ctrl+Shift+C** — Create a new conversation file and open chat view  
-- `Aici: Open Aici Help` — Open help documentation  
-- `Aici: Open Aici Settings` — Configure AI settings  
+- Conversation files with extension `.convo` use custom editor "Aici Chat"
+- Language ID: `aici-chat`
 
-To run tests:
+### Hotkeys and Commands
 
-```bash
+- `Ctrl+Shift+C` — Open new chat conversation or open `.convo` file in chat editor
+- Command Palette:
+  - `Aici: Open Aici Chat`
+  - `Aici: Open Aici Help`
+  - `Aici: Open Aici Settings`
+- Right-click in Explorer: `Send to Aici Chat` to send files/folders content to chat
+
+### AI Workflows
+
+Type these as chat messages to invoke workflows:
+
+- `/update` — AI automated file updates
+- `/commit` — AI-generated git commit messages
+- `/plan` — AI file change plans
+- `/build` — AI-assisted build commands with error fixes
+
+### Running Tests
+
+```
 npm run test
 ```
 
@@ -58,50 +75,41 @@ npm run test
 
 ## Configuration
 
-Edit `.vscode/settings.json` or use the Settings UI in VS Code to configure:
+Configure workspace `.vscode/settings.json` or use Aici Settings UI for:
 
-- `aici.aiApi` — AI provider key (e.g., "openai")  
-- `aici.aiUrl` — AI API endpoint URL  
-- `aici.aiModel` — Default AI model  
-- `aici.aiModels` — List of available AI models  
-- `aici.ignoreRegex` — Array of regex strings to ignore files/folders  
-- Retry counts and delays for AI requests and update workflows
-
-**Note:** AI API keys are stored securely via VS Code SecretStorage, and should never be put in plain text settings files. Optionally, you can set environment variables:
-
-- `AICI_AIKEY` or `OPENAI_API_KEY`
+- `aici.aiApi`: AI provider key (e.g., "openai")
+- `aici.aiUrl`: AI API endpoint URL
+- `aici.aiModel`: Default AI model
+- `aici.aiModels`: Array of available AI models
+- `aici.ignoreRegex`: Regex array to ignore files
+- Retry counts: `aici.aiRetries`, `aici.aiRetryDelaySeconds`, `aici.updateRetries`, `aici.buildBuildRetries`
+- AI key (`aici.aiKey`) is stored securely in SecretStorage and not saved in plaintext
 
 ---
 
 ## Development
 
-### Build Tasks
-
-- `task - clean` — Clean build artifacts  
-- `task - build` — Build all packages  
-- `task - watch` — Build and watch changes in extensions and webviews  
-- `task - package` — Increment version and package VSIX
-
-### Folder Structure Overview
-
-- `/library` — Shared AI and workflow libraries  
-- `/extensions` — VS Code extension source  
-- `/webviews` — React-based UI webviews  
-- `.vscode` — VS Code configs and tasks
-
----
-
-## License
-
-This project is licensed under the [GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)](https://www.gnu.org/licenses/agpl-3.0.html). See [extensions/LICENSE.md](extensions/LICENSE.md) for details.
-
-© 2025 Shawn Zernik
+- Folder structure:
+  - `/extensions`: main extension source code
+  - `/library`: shared AI DTOs and utilities
+  - `/webviews`: React UI components for chat, help, settings
+  - `/system`: OS and file system helpers
+- Build/watch using `.vscode/tasks.json`, e.g. `task - build`, `task - watch`
+- Debug using `.vscode/launch.json`
+- Uses TypeScript with Jest for unit tests
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please open issues or pull requests on GitHub. Follow code style and commit message conventions for smooth integration.
+- Follow repo coding style and commit message guidelines
+- Report issues and submit pull requests on GitHub
+
+---
+
+## License
+
+Licensed under GNU Affero General Public License v3 or later (AGPL-3.0-or-later). See `extensions/LICENSE.md` for details.
 
 ---
 

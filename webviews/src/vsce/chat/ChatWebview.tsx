@@ -4,9 +4,9 @@ import { Flex } from "../../components/Flex";
 import { PostMessageClient } from "./PostMessageClient";
 import { File } from "@lvt/aici-library/dist/llm/File";
 import { Nullable } from "@lvt/aici-library/dist/Nullable";
-import { Conversation as ConversationView } from "./Conversation";
 import { Conversation as ConversationDto } from "@lvt/aici-library/dist/llm/Conversation";
 import { Message } from "@lvt/aici-library/dist/llm/Message";
+import { Conversation } from "./Conversation";
 import { NewMessage } from "./NewMessage";
 import { Attachments } from "./Attachments";
 import { FileHelper } from "@lvt/aici-library/dist/llm/FileHelper";
@@ -30,11 +30,9 @@ interface State {
 	status: ResponseStatus;
 	attachments: File[];
 	conversation?: ConversationDto;
-	config: {
-		tokenLengthDivisor?: number;
-		[key: string]: any;
-	};
+	config: { [key: string]: any };
 }
+
 interface Properties { }
 
 export class ChatWebview extends React.Component<Properties, State> {
@@ -47,16 +45,11 @@ export class ChatWebview extends React.Component<Properties, State> {
 			aiModel: "default",
 			aiModels: [],
 			format: "markdown",
-			message: {
-				role: "user",
-				content: ""
-			},
+			message: { role: "user", content: "" },
 			metrics: { requestTokens: 0, responseTokens: 0, seconds: 0 },
 			status: "idle",
 			attachments: [],
-			config: {
-				tokenLengthDivisor: 3.5
-			}
+			config: {},
 		};
 	}
 
@@ -73,6 +66,20 @@ export class ChatWebview extends React.Component<Properties, State> {
 				if (parsed) this.setState({ conversation: parsed });
 			}
 		}
+
+		const curr = this.state.metrics;
+		const prev = prevState.metrics;
+
+		// Only revert metrics to previous if not resetting or idle
+		if (
+			this.state.status !== "idle" &&
+			curr.requestTokens === 0 &&
+			curr.responseTokens === 0 &&
+			curr.seconds === 0 &&
+			(prev.requestTokens !== 0 || prev.responseTokens !== 0 || prev.seconds !== 0)
+		) {
+			this.setState({ metrics: prev });
+		}
 	}
 
 	private tryParseConversation(contents: string): ConversationDto | undefined {
@@ -85,62 +92,23 @@ export class ChatWebview extends React.Component<Properties, State> {
 		}
 	}
 
-	private approximateTokens(text: string): number {
-		if (!text) return 0;
-		const divisor = this.state.config.tokenLengthDivisor ?? 3.5;
-		return Math.ceil(text.length / divisor);
-	}
-
-	private calculateApproxPromptTokens(convo: ConversationDto): number {
-		const msgs = convo.messages || [];
-		let total = 0;
-		for (const msg of msgs) {
-			if (msg.role !== "assistant") {
-				total += this.approximateTokens(msg.content);
-			}
-		}
-		return total;
-	}
-
-	private changeFile(contents: string): void {
-		if (!this.state.file)
-			return;
-
-		const newFile: File = {
-			name: this.state.file.name,
-			contents: contents
-		};
-
-		const nextConversation = this.tryParseConversation(contents);
-
-		this.setState((_) => ({
-			file: newFile,
-			...(nextConversation !== undefined ? { conversation: nextConversation } : {})
-		}));
-		this.postMessageClient?.sendFileChanged(newFile);
-	}
-
 	private onNewMessageSend(): void {
-		if (!this.state.file || !this.state.conversation)
-			return;
+		if (!this.state.file || !this.state.conversation) return;
 
 		const convo = JsonHelper.copy<ConversationDto>(this.state.conversation);
 		const trimmed = (this.state.message.content || "").trim();
-		if (!trimmed)
-			return;
+		if (!trimmed) return;
 
-		const filesInline = this.state.attachments.map((file) => {
-			return FileHelper.toMarkdown(file);
-		}).join("\n\n");
+		const filesInline = this.state.attachments
+			.map((file) => FileHelper.toMarkdown(file))
+			.join("\n\n");
 
 		const content = `${filesInline}\n\n\n${trimmed}`.trim();
 		const currentMsgs = Array.isArray(convo.messages) ? convo.messages : [];
 		convo.messages = [...currentMsgs, { role: "user", content }];
 
-		const approxPromptTokens = this.calculateApproxPromptTokens(convo);
 		this.setState({
-			metrics: { requestTokens: approxPromptTokens, responseTokens: 0, seconds: 0 },
-			status: "streaming",
+			status: "working",
 			attachments: [],
 			message: { role: "user", content: "" },
 			file: this.state.file,
@@ -155,15 +123,14 @@ export class ChatWebview extends React.Component<Properties, State> {
 	}
 
 	private onUserMessageSelected(index: number, content: string): void {
-		if (!this.state.file || !this.state.conversation)
-			return;
+		if (!this.state.file || !this.state.conversation) return;
 
 		const convo = this.state.conversation;
 		const base = Array.isArray(convo.messages) ? convo.messages : [];
 		const sliced: ConversationDto = {
 			dated: convo.dated,
 			title: convo.title,
-			messages: base.slice(0, index)
+			messages: base.slice(0, index),
 		};
 
 		const json = JSON.stringify(sliced, null, "\t");
@@ -171,33 +138,31 @@ export class ChatWebview extends React.Component<Properties, State> {
 		this.setState({ message: { role: "user", content: content.trim() } });
 	}
 
-	private promptTokens(): number {
-		if (!this.state.conversation?.messages) return 0;
-		const msgs = this.state.conversation.messages;
-		let sum = 0;
-		for (let i = 0; i < msgs.length - 1; i++) {
-			const tok = msgs[i]?.tokenCount ?? 0;
-			sum += tok;
-		}
-		return sum;
-	}
-
-	private completionTokens(): number {
-		if (!this.state.conversation?.messages) return 0;
-		const msgs = this.state.conversation.messages;
-		const last = msgs[msgs.length - 1];
-		if (!last || last.role.toLowerCase() !== "assistant") return 0;
-		return last.tokenCount ?? 0;
-	}
-
 	private tokensPerSecond(): string {
-		const prompt = this.promptTokens();
-		const completion = this.completionTokens();
+		const prompt = this.state.metrics.requestTokens || 0;
+		const completion = this.state.metrics.responseTokens || 0;
 		const total = prompt + completion;
 		const s = this.state.metrics.seconds || 0;
 		if (!s) return "0.00";
 		const tps = total / s;
 		return tps.toFixed(2);
+	}
+
+	private changeFile(contents: string): void {
+		if (!this.state.file) return;
+
+		const newFile: File = {
+			name: this.state.file.name,
+			contents: contents,
+		};
+
+		const nextConversation = this.tryParseConversation(contents);
+
+		this.setState((_) => ({
+			file: newFile,
+			...(nextConversation !== undefined ? { conversation: nextConversation } : {}),
+		}));
+		this.postMessageClient?.sendFileChanged(newFile);
 	}
 
 	private resetConversation(): void {
@@ -209,14 +174,14 @@ export class ChatWebview extends React.Component<Properties, State> {
 		const newConvo: ConversationDto = {
 			dated: new Date().toISOString(),
 			title: "",
-			messages: [{ role: "system", content: systemPrompt }]
+			messages: [{ role: "system", content: systemPrompt }],
 		};
 
 		if (!this.state.file) return;
 
 		const newFile: File = {
 			name: this.state.file.name,
-			contents: JSON.stringify(newConvo, null, "\t")
+			contents: JSON.stringify(newConvo, null, "\t"),
 		};
 
 		this.setState({
@@ -225,7 +190,7 @@ export class ChatWebview extends React.Component<Properties, State> {
 			message: { role: "user", content: "" },
 			attachments: [],
 			status: "idle",
-			metrics: { requestTokens: 0, responseTokens: 0, seconds: 0 }
+			metrics: { requestTokens: 0, responseTokens: 0, seconds: 0 },
 		});
 
 		this.postMessageClient?.sendFileChanged(newFile);
@@ -233,23 +198,27 @@ export class ChatWebview extends React.Component<Properties, State> {
 
 	public override render() {
 		if (!this.state.file || !this.state.conversation)
-			return <div><h1>No File Loaded</h1></div>;
+			return (
+				<div>
+					<h1>No File Loaded</h1>
+				</div>
+			);
 
 		const conversation = this.state.conversation as ConversationDto;
 		const modelOptions = this.state.aiModels || [];
 
-		const statusLabel = this.state.status.charAt(0).toUpperCase() + this.state.status.slice(1);
-		// Compute prompt tokens with estimate fallback when zero during streaming
-		let promptTokens = this.state.metrics.requestTokens;
-		if (this.state.status === "streaming" && promptTokens === 0 && this.state.conversation) {
-			promptTokens = this.calculateApproxPromptTokens(this.state.conversation);
-		}
+		const statusLabel =
+			this.state.status.charAt(0).toUpperCase() +
+			this.state.status.slice(1);
 
-		// Use actual tokens on idle
-		const completionTokens = this.state.status === "idle" ? this.completionTokens() : this.state.metrics.responseTokens;
+		const promptTokens = this.state.metrics.requestTokens || 0;
+		const completionTokens = this.state.metrics.responseTokens || 0;
 
 		return (
-			<Flex direction="column" style={{ height: "100vh", minHeight: "0", overflowX: "hidden" }}>
+			<Flex
+				direction="column"
+				style={{ height: "100vh", minHeight: "0", overflowX: "hidden" }}
+			>
 				<Flex
 					direction="row"
 					alignItems="center"
@@ -260,42 +229,61 @@ export class ChatWebview extends React.Component<Properties, State> {
 						paddingBottom: "1em",
 						marginBottom: "1em",
 						paddingTop: "1em",
-						justifyContent: "space-between"
-					}}>
-					<Flex direction="row" alignItems="center" gap="1em" flexWrap="wrap">
-						<Flex direction="row" alignItems="center" style={{ gap: "0.25em" }}>
+						justifyContent: "space-between",
+					}}
+				>
+					<Flex
+						direction="row"
+						alignItems="center"
+						gap="1em"
+						flexWrap="wrap"
+					>
+						<Flex
+							direction="row"
+							alignItems="center"
+							style={{ gap: "0.25em" }}
+						>
 							<span>Model:</span>
 							<Select
 								value={this.state.aiModel}
 								onChange={(val) => {
 									this.setState({
-										aiModel: val
+										aiModel: val,
 									});
 								}}
 								options={[
 									{ value: "default", label: "Default" },
-									...modelOptions.map(m => ({ value: m, label: m }))
+									...modelOptions.map((m) => ({ value: m, label: m })),
 								]}
 							/>
 						</Flex>
-						<Flex direction="row" alignItems="center" style={{ gap: "0.25em" }}>
+						<Flex
+							direction="row"
+							alignItems="center"
+							style={{ gap: "0.25em" }}
+						>
 							<span>Output:</span>
 							<Select
 								value={this.state.format}
 								onChange={(val) => {
 									this.setState({
-										format: val as ChatRendering
+										format: val as ChatRendering,
 									});
 								}}
 								options={[
 									{ value: "markdown", label: "Markdown" },
-									{ value: "pre", label: "Preformatted" }
+									{ value: "pre", label: "Preformatted" },
 								]}
 							/>
 						</Flex>
 					</Flex>
 
-					<Flex direction="row" alignItems="center" gap="0.5em" style={{ marginLeft: "auto" }}>
+					<Flex
+						direction="row"
+						alignItems="center"
+						gap="0.5em"
+						style={{ marginLeft: "auto" }}
+					>
 						<button
 							type="button"
 							title="Help"
@@ -308,7 +296,7 @@ export class ChatWebview extends React.Component<Properties, State> {
 								display: "inline-flex",
 								alignItems: "center",
 								justifyContent: "center",
-								color: "var(--vscode-icon-foreground)"
+								color: "var(--vscode-icon-foreground)",
 							}}
 						>
 							<QuestionCircle width={18} height={18} />
@@ -325,7 +313,7 @@ export class ChatWebview extends React.Component<Properties, State> {
 								display: "inline-flex",
 								alignItems: "center",
 								justifyContent: "center",
-								color: "var(--vscode-icon-foreground)"
+								color: "var(--vscode-icon-foreground)",
 							}}
 						>
 							<Gear width={18} height={18} />
@@ -333,7 +321,7 @@ export class ChatWebview extends React.Component<Properties, State> {
 					</Flex>
 				</Flex>
 
-				<ConversationView
+				<Conversation
 					format={this.state.format}
 					model={conversation}
 					onChange={(convo: ConversationDto) => {
@@ -354,15 +342,30 @@ export class ChatWebview extends React.Component<Properties, State> {
 					gap="1em"
 					style={{
 						borderTop: "1pt solid var(--vscode-editorWidget-border)",
-						paddingTop: "1em",
 						marginTop: "1em",
+						paddingTop: "1em",
 					}}
 				>
-					<span>Status:<br /> {statusLabel}</span>
-					<span>Prompt:<br /> {promptTokens}</span>
-					<span>Completion:<br /> {completionTokens}</span>
-					<span>Seconds:<br /> {this.state.metrics.seconds.toFixed(1)}</span>
-					<span>Tokens/Second:<br /> {this.tokensPerSecond()}</span>
+					<span>
+						Status:
+						<br /> {statusLabel}
+					</span>
+					<span>
+						Prompt:
+						<br /> {promptTokens}
+					</span>
+					<span>
+						Completion:
+						<br /> {completionTokens}
+					</span>
+					<span>
+						Seconds:
+						<br /> {this.state.metrics.seconds.toFixed(1)}
+					</span>
+					<span>
+						Tokens/Second:
+						<br /> {this.tokensPerSecond()}
+					</span>
 				</Flex>
 
 				<Attachments

@@ -34,7 +34,7 @@ export class SettingsWebview extends React.Component<Properties, State> {
 				aiRetries: 3,
 				aiRetryDelaySeconds: 10,
 				updateRetries: 3,
-				tokenLengthDivisor: 3.5
+				buildBuildRetries: 5
 			},
 			aiModelsText: "",
 			ignoreRegexText: ""
@@ -89,7 +89,7 @@ export class SettingsWebview extends React.Component<Properties, State> {
 		config.aiRetries = Number(config.aiRetries ?? 3);
 		config.aiRetryDelaySeconds = Number(config.aiRetryDelaySeconds ?? 10);
 		config.updateRetries = Number(config.updateRetries ?? 3);
-		config.tokenLengthDivisor = Number(config.tokenLengthDivisor ?? 3.5);
+		config.buildBuildRetries = Number(config.buildBuildRetries ?? 5);
 
 		this.pmClient?.saveSettings(config);
 	}
@@ -235,22 +235,20 @@ export class SettingsWebview extends React.Component<Properties, State> {
 						</div>
 
 						<div>
-							<div style={labelStyle}>Token Length Divisor</div>
+							<div style={labelStyle}>Build Retry Count (build command)</div>
 							<input
 								type="number"
-								min={0.1}
-								step={0.1}
+								min={0}
 								style={inputStyle}
-								value={String(config.tokenLengthDivisor ?? 3.5)}
+								value={String(config.buildBuildRetries ?? 5)}
 								onChange={(e) => {
 									const next = JsonHelper.copy<AiciConfig>(config);
-									next.tokenLengthDivisor = Number(e.target.value || 3.5);
+									next.buildBuildRetries = Number(e.target.value || 5);
 									this.setState({ config: next });
 								}}
-								placeholder="Divisor to estimate prompt tokens"
+								placeholder="Retries for build command"
 							/>
 						</div>
-
 					</Flex>
 				</div>
 

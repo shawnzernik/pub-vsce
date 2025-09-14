@@ -1,9 +1,12 @@
-import { Request } from "@lvt/aici-library/dist/llm/Request";
 import { WorkflowBase } from "./WorkflowBase";
 import { Repository } from "../../system/Repository";
 import { File } from "@lvt/aici-library/dist/llm/File";
 import { Config } from "../../config";
 import { parseFileFencedBlocks } from "./MarkdownFencedParser";
+
+interface UpdateFile extends File {
+	action: "add" | "edit" | "delete";
+}
 
 export class UpdateWorkflow extends WorkflowBase {
 	public static create(
@@ -14,37 +17,32 @@ export class UpdateWorkflow extends WorkflowBase {
 		return new UpdateWorkflow(config, repository, updater);
 	}
 
-	protected override async execute(request: Request): Promise<Request> {
-		this.request = request;
+	protected override async execute(): Promise<void> {
+		if (!this.request) throw new Error("Request not initialized");
 
-		try {
-			const total = await this.step2Files();
+		const total = await this.step2Files();
 
-			for (let i = 1; i <= total; i++) {
-				const stepResult = await this.step3Contents(i);
+		for (let i = 1; i <= total; i++) {
+			const stepResult = await this.step3Contents(i);
 
-				if (!stepResult || !stepResult.file)
-					throw new Error(`Step ${i} did not return a file result!`);
+			if (!stepResult || !stepResult.file)
+				throw new Error(`Step ${i} did not return a file result!`);
 
-				const file = stepResult.file;
+			const file = stepResult.file;
 
-				if (!stepResult.handled) {
-					this.repository.write(file.name, file.contents);
-				}
-
-				if (file.contents === null)
-					break;
+			if (!stepResult.handled) {
+				if (file.action === "delete")
+					this.repository.write(file.name, null);
+				else
+					this.repository.write(file.name, file.contents as string);
 			}
 
-			return this.request;
-		} catch (err) {
-			const errorText =
-				`Workflow error:\n\n` +
-				`${(err as Error)?.message || String(err)}` +
-				`\n\nPlease fix the issue and retry.`;
-			this.request.messages.push({ role: "assistant", content: errorText });
-			return this.request;
+			if (file.contents === null)
+				break;
 		}
+
+		const stopJsonPrompt = await this.readBundledPrompt("update/999-done.md");
+		await this.sendUserMessage(stopJsonPrompt);
 	}
 
 	private async step2Files(): Promise<number> {
@@ -64,62 +62,52 @@ export class UpdateWorkflow extends WorkflowBase {
 		return Number.parseInt(m[1] || "0", 10);
 	}
 
-	private async step3Contents(counter: number): Promise<{ file?: File; handled?: boolean }> {
-		let prompt = await this.readBundledPrompt("update/003-contents.md");
-		prompt = prompt.replace(/{{counter}}/g, counter.toFixed());
-		const text = await this.sendUserMessage(prompt);
+	private async step3Contents(counter: number): Promise<{ file?: UpdateFile; handled?: boolean }> {
+		const userPrompt = (await this.readBundledPrompt("update/003-contents.md")).replace(/{{counter}}/g, counter.toFixed());
 
-		const deleteMatch = /Delete(?:\s+File)?\s+`([^`]+)`/i.exec(text);
-		if (deleteMatch && deleteMatch[1]) {
-			const delPath = deleteMatch[1];
-			try {
-				this.repository.write(delPath, null);
-			} catch (err) {
-				throw new Error(`Failed to delete file '${delPath}': ${String((err as any)?.message || err)}`);
+		for (let attempt = 1; attempt <= 2; attempt++) {
+			const text = await this.sendUserMessage(userPrompt);
+			let jsonText: string | undefined;
+			const blocks = parseFileFencedBlocks(text);
+
+			if (blocks.length > 0)
+				jsonText = blocks[0]?.contents?.trim() ?? "";
+			else {
+				// Extract first fenced code block (` ```json ... ``` ` or `~~~ ... ~~~`) or fallback to raw text
+				const m =
+					/(?:^|\n)([`~]{3,})(?:json|javascript|js)?\s*\n([\s\S]*?)\n\1/.exec(text) ||
+					/(?:^|\n)([`~]{3,})\s*\n([\s\S]*?)\n\1/.exec(text);
+				jsonText = (m && m[2] !== undefined ? m[2] : text).trim();
 			}
-			return { file: { name: delPath, contents: "" }, handled: true };
+
+			try {
+				const parsed = JSON.parse(jsonText);
+				if (
+					typeof parsed !== "object" ||
+					typeof parsed.name !== "string" ||
+					!(["add", "edit", "delete"] as string[]).includes(parsed.action)
+				)
+					throw new Error("Parsed JSON missing required fields 'name' or 'action'");
+
+				if (parsed.action === "delete")
+					return { file: { name: parsed.name, contents: "", action: parsed.action }, handled: false };
+
+				if (typeof parsed.contents !== "string")
+					throw new Error("Missing or invalid 'contents' field for add/edit action");
+
+				return { file: { name: parsed.name, contents: parsed.contents, action: parsed.action }, handled: false };
+			} catch (err) {
+				if (attempt === 2) {
+					throw new Error(`Failed to parse JSON response on step ${counter}: ${(err as Error).message}`);
+				}
+
+				let fixPrompt = await this.readBundledPrompt("update/003-contents.md");
+				fixPrompt = fixPrompt.replace(/{{text}}/g, text);
+
+				await this.sendUserMessage(fixPrompt);
+			}
 		}
 
-		const blocks = parseFileFencedBlocks(text);
-		if (!blocks || blocks.length === 0) {
-			this.appendFileParseError(
-				counter,
-				"Could not locate file name and contents in the response. Please provide the full, corrected file contents in a single fenced block using the absolute repository-relative path without any URI scheme, like:\n\n`File `src/path/to/file.ext`:`"
-			);
-			throw new Error("Could not locate file name and contents!");
-		}
-
-		const first = blocks[0];
-		if (!first || !first.name || first.contents === undefined) {
-			this.appendFileParseError(
-				counter,
-				"Could not locate file name and contents in the response. Please provide the full, corrected file contents in a single fenced block using the absolute repository-relative path without any URI scheme, like:\n\n`File `src/path/to/file.ext`:`"
-			);
-			throw new Error("Could not locate file name and contents!");
-		}
-
-		return { file: { name: first.name, contents: first.contents }, handled: false };
-	}
-
-	private appendFileParseError(step: number, output: string): void {
-		if (!this.request) return;
-
-		const text = [
-			`The assistant response for step ${step} did not include a valid full-file fenced block (required).`,
-			"",
-			"Error details:",
-			"```",
-			(output || "(no output)").trim(),
-			"```",
-			"",
-			"Please respond with the complete, corrected file contents in a single fenced block. Include the repository-relative path in the header like:",
-			"",
-			"`File \`src/path/to/file.ext\`:`",
-			"",
-			"Ensure the fenced block uses a run of backticks longer than any backtick runs in the file contents.",
-		].join("\n");
-
-		this.request.messages.push({ role: "user", content: text });
-		this.request.messages.push({ role: "assistant", content: "" });
+		return {};
 	}
 }

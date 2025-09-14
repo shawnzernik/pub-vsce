@@ -4,11 +4,15 @@ import { UpdateWorkflow } from "./UpdateWorkflow";
 import { CommitWorkflow } from "./CommitWorkflow";
 import { Repository } from "../../system/Repository";
 import { Config } from "../../config";
+import { PlanWorkflow } from "./PlanWorkflow";
+import { BuildWorkflow } from "./BuildWorkflow";
 
 export class WorkflowFactory {
 	private static workflows: Dictionary<(config: Config, repository: Repository, updater: WorkflowUpdater) => WorkflowBase> = {
 		update: UpdateWorkflow.create,
-		commit: CommitWorkflow.create
+		commit: CommitWorkflow.create,
+		plan: PlanWorkflow.create,
+		build: BuildWorkflow.create,
 	}
 
 	public static create(config: Config, repository: Repository, name: string, updater: WorkflowUpdater): WorkflowBase {

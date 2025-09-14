@@ -11,6 +11,8 @@ import { ChatRequest } from "@lvt/aici-library/dist/vsce/chat/ChatRequest";
 export class PostMessageClient extends BasePostMessageClient {
 	private webview: ChatWebview;
 
+	private lastKnownMetrics = { requestTokens: 0, responseTokens: 0, seconds: 0 };
+
 	public constructor(webview: ChatWebview) {
 		super();
 		this.webview = webview;
@@ -44,6 +46,8 @@ export class PostMessageClient extends BasePostMessageClient {
 		if (!incoming || !Array.isArray(incoming.messages))
 			return;
 
+		console.debug("PostMessageClient.onAiChat - incoming messages count:", incoming.messages.length);
+
 		let currentConvo: ConversationDto | undefined = undefined;
 		try {
 			currentConvo = JSON.parse(this.webview.state.file.contents) as ConversationDto;
@@ -69,7 +73,7 @@ export class PostMessageClient extends BasePostMessageClient {
 
 				if (lastCurr && lastCurrRole === "assistant") {
 					if (incomingText !== lastCurrText) {
-						const replaced = currMsgs.slice(0, currMsgs.length - 1).concat([{ role: "assistant", content: incomingText, tokenCount: incomingLast.tokenCount ?? 0 }]);
+						const replaced = currMsgs.slice(0, currMsgs.length - 1).concat([{ role: "assistant", content: incomingText }]);
 						newConvo = {
 							dated: currentConvo.dated || new Date().toISOString(),
 							title: currentConvo.title || "",
@@ -80,7 +84,7 @@ export class PostMessageClient extends BasePostMessageClient {
 					}
 				} else {
 					if (incomingText !== lastCurrText) {
-						const appended = currMsgs.concat([{ role: "assistant", content: incomingText, tokenCount: incomingLast.tokenCount ?? 0 }]);
+						const appended = currMsgs.concat([{ role: "assistant", content: incomingText }]);
 						newConvo = {
 							dated: currentConvo.dated || new Date().toISOString(),
 							title: currentConvo.title || "",
@@ -97,12 +101,17 @@ export class PostMessageClient extends BasePostMessageClient {
 
 		const newFile = this.createUpdatedFile(this.webview.state.file, newConvo);
 
-		const prevMetrics = this.webview.state.metrics || { requestTokens: 0, responseTokens: 0, seconds: 0 };
-		const nextMetrics = {
-			requestTokens: payload.metrics?.requestTokens ?? prevMetrics.requestTokens,
-			responseTokens: payload.metrics?.responseTokens ?? prevMetrics.responseTokens,
-			seconds: payload.metrics?.seconds ?? prevMetrics.seconds
-		};
+		// Only update metrics if non-zero; if zero, keep prior metrics to prevent UI reset
+		const incomingMetrics = payload.metrics ?? { requestTokens: 0, responseTokens: 0, seconds: 0 };
+		if (
+			incomingMetrics.requestTokens > 0 ||
+			incomingMetrics.responseTokens > 0 ||
+			incomingMetrics.seconds > 0
+		) {
+			this.lastKnownMetrics = incomingMetrics;
+		}
+
+		const nextMetrics = this.lastKnownMetrics;
 
 		const nextStatus = payload.status ?? "idle";
 

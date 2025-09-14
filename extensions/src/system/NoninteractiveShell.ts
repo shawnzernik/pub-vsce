@@ -1,5 +1,6 @@
 import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
 import { StringBuffer } from "@lvt/aici-library/dist/StringBuffer";
+import * as process from "process";
 
 export class NoninteractiveShell {
 	public error = false;
@@ -16,9 +17,17 @@ export class NoninteractiveShell {
 			const buffer = new StringBuffer();
 			const ret = new NoninteractiveShell();
 
+			const optionsWithFilteredEnv = { ...(options || {}) };
+			optionsWithFilteredEnv.env = { ...process.env, ...(optionsWithFilteredEnv.env || {}) };
+			delete optionsWithFilteredEnv.env['NODE_OPTIONS'];
+			delete optionsWithFilteredEnv.env['NODE_DEBUG'];
+			delete optionsWithFilteredEnv.env['NODE_INSPECT'];
+
+			const cleanCommand = command.replace(/\b--inspect(-brk)?(=[^\s]*)?/g, "").trim();
+
 			let childProcess;
 			try {
-				childProcess = spawn(command, { shell: true, ...(options || {}) });
+				childProcess = spawn(cleanCommand, { shell: true, ...optionsWithFilteredEnv });
 			} catch (err: any) {
 				// Immediate spawn failure (e.g. ENOENT)
 				ret.error = true;

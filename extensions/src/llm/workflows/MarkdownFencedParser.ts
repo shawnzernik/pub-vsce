@@ -13,64 +13,55 @@ export function parseFileFencedBlocks(markdown: string): ParsedFileBlock[] {
 
 	while ((headerMatch = headerRe.exec(markdown)) !== null) {
 		const name = headerMatch[1];
-		const afterHeaderIndex = headerMatch.index + headerMatch[0].length;
+		let afterHeaderIndex = headerMatch.index + headerMatch[0].length;
 
-		// Slice from after header and skip leading whitespace/newlines.
+		// Skip any number of blank lines (whitespace + newlines) after the header
 		const afterHeaderSlice = markdown.slice(afterHeaderIndex);
-		const leadingWsMatch = afterHeaderSlice.match(/^\s*/);
-		const leadingLen = leadingWsMatch ? leadingWsMatch[0].length : 0;
-		const searchStart = afterHeaderIndex + leadingLen;
-		const remaining = markdown.slice(searchStart);
+		const blankLinesMatch = afterHeaderSlice.match(/^(\s*\r?\n)*/);
+		const leadingLen = blankLinesMatch ? blankLinesMatch[0].length : 0;
+		afterHeaderIndex += leadingLen;
 
-		// Find an opening fence on a line: sequence of backticks or tildes, length >= 3.
-		// Capture full fence string and any trailing info (lang or similar).
+		const remaining = markdown.slice(afterHeaderIndex);
+
+		// Match opening fence with optional info string (including empty)
 		const openFenceRe = /^([`~]{3,})([^\r\n]*)\r?\n?/m;
 		const openMatch = openFenceRe.exec(remaining);
 		if (!openMatch) {
-			// No opening fence after header -> skip
 			continue;
 		}
 
 		const fullFence = openMatch[1] || "";
 		const info = (openMatch[2] || "").trim();
 
-		// Compute where content starts in the original markdown
-		const contentStartIndex = searchStart + (openMatch.index ?? 0) + openMatch[0].length;
+		const contentStartIndex = afterHeaderIndex + (openMatch.index ?? 0) + openMatch[0].length;
 
-		// Walk lines from contentStartIndex to find closing fence that exactly matches fullFence
 		const afterOpen = markdown.slice(contentStartIndex);
 		const lines = afterOpen.split(/\r?\n/);
 
-		let offset = 0; // characters consumed from afterOpen
+		let offset = 0;
 		let foundClose = false;
 		const contentLines: string[] = [];
 
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i] ?? "";
-			// Check for exact closing fence match (trimmed)
-			if (line.trim() === fullFence) {
-				// account for closing fence line length
+			if (line.trim() === fullFence) { // match exact fence ignoring trailing whitespace
 				offset += line.length;
 				foundClose = true;
 				break;
 			}
-			// Accumulate content line and account for newline that was removed by split
 			contentLines.push(line);
-			offset += line.length + 1; // +1 approximates the removed newline
+			offset += line.length + 1;
 		}
 
 		if (!foundClose) {
-			// No matching closing fence -> ignore this header (defensive)
 			continue;
 		}
 
 		const contents = contentLines.join("\n");
 		results.push({ name: name!, info, contents });
 
-		// Advance headerRe.lastIndex to the end of the closing fence to avoid re-matching inside the fenced block.
 		const closingFenceStart = contentStartIndex + offset;
 		const closingFenceEnd = closingFenceStart + fullFence.length;
-		// Move past the closing fence (and one char to be safe)
 		headerRe.lastIndex = Math.max(headerRe.lastIndex, closingFenceEnd + 1);
 	}
 

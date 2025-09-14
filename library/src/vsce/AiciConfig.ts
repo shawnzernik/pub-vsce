@@ -11,5 +11,5 @@ export interface AiciConfig {
 
 	updateRetries: number;
 
-	tokenLengthDivisor: number;
+	buildBuildRetries: number;
 }

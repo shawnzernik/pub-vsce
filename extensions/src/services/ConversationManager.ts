@@ -14,6 +14,8 @@ export class ConversationManager {
 		const isAssistant = incomingLast?.role?.toLowerCase() === "assistant";
 		const incomingText = (incomingLast?.content || "").trim();
 
+		console.debug("mergeAssistantMessage - Incoming last role:", incomingLast?.role, "content:", incomingText.substring(0,100));
+
 		if (!isAssistant || incomingText.length === 0)
 			return cloned;
 
@@ -21,14 +23,22 @@ export class ConversationManager {
 		const lastCurrText = (lastCurr?.content || "").trim();
 		const lastCurrRole = (lastCurr?.role || "").toLowerCase();
 
+		console.debug("mergeAssistantMessage - Current last role:", lastCurr?.role, "content:", lastCurrText.substring(0,100));
+
 		if (lastCurr && lastCurrRole === "assistant") {
 			if (incomingText !== lastCurrText) {
 				const replaced = currentMessages.slice(0, currentMessages.length - 1).concat([{ ...incomingLast }]);
 				cloned.messages = replaced;
+				console.debug("mergeAssistantMessage - replaced last assistant message.");
+			} else {
+				console.debug("mergeAssistantMessage - incoming assistant message matches current last message, no change.");
 			}
 		} else {
 			if (incomingText !== lastCurrText) {
 				cloned.messages = currentMessages.concat([{ ...incomingLast }]);
+				console.debug("mergeAssistantMessage - appended assistant message.");
+			} else {
+				console.debug("mergeAssistantMessage - incoming assistant message same as current last user message, no append.");
 			}
 		}
 

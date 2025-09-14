@@ -4,6 +4,7 @@ import { Metrics } from "@lvt/aici-library/dist/llm/Metrics";
 import { Config } from "../../config";
 import { Message } from "@lvt/aici-library/dist/llm/Message";
 import { ResponseStatus } from "@lvt/aici-library/dist/llm/Response";
+
 import { Connection } from "../openai/Connection";
 
 export type WorkflowUpdater = (me: WorkflowBase) => void;
@@ -30,10 +31,23 @@ export abstract class WorkflowBase {
 
 	private started = Date.now();
 
-	public async sendRequest(request: Request): Promise<Request> {
-		this.request = JSON.parse(JSON.stringify(request)) as Request; // deep copy as workaround
-		this.started = Date.now();
-		this.status = "streaming";
+	protected appendAssistantMessage(content: string): void {
+		if (this.request) {
+			this.request.messages.push({
+				role: "assistant",
+				content
+			});
+		}
+	}
+	public async sendRequest(request: Request): Promise<void> {
+		// Pass request by reference to enable natural updates
+		this.request = request;
+		this.status = "working";
+		this.metrics = {
+			requestTokens: 0,
+			responseTokens: 0,
+			seconds: 0
+		};
 
 		const tempMessages: Message[] = [];
 		for (let cnt = 0; cnt < this.request.messages.length - 1; cnt++)
@@ -41,15 +55,21 @@ export abstract class WorkflowBase {
 		this.request.messages = tempMessages;
 		this.updated(this);
 
-		const result = await this.execute(this.request);
-		return result;
+		try {
+			await this.execute()
+		} catch (err) {
+			const error = err as Error;
+			const errorText = `Workflow error:\n\n${error.message}\n\n${error.stack || ""}\n\nPlease fix the issue and retry.`;
+			this.appendAssistantMessage(errorText);
+		}
 	}
 
-	protected abstract execute(request: Request): Promise<Request>;
+	protected abstract execute(): Promise<void>;
 
-	protected updateMetrics(_metrics: Partial<Metrics>): void {
-		// Only update elapsed seconds here; tokens tracked per message
-		this.metrics.seconds = (Date.now() - this.started) / 1000;
+	protected updateMetrics(m: Partial<Metrics>): void {
+		this.metrics.requestTokens = Number(m.requestTokens ?? 0);
+		this.metrics.responseTokens = Number(m.responseTokens ?? 0);
+		this.metrics.seconds = Number(m.seconds ?? 0);
 		this.updated(this);
 	}
 
@@ -62,6 +82,8 @@ export abstract class WorkflowBase {
 
 		this.request.messages.push({ role: "user", content: prompt });
 		this.request.messages.push({ role: "assistant", content: "" });
+
+		this.started = Date.now();
 
 		const conn = new Connection(
 			this.config.aiUrl,
@@ -85,6 +107,27 @@ export abstract class WorkflowBase {
 
 		const last = this.request.messages[this.request.messages.length - 1];
 		if (last && last.role === "assistant" && last.content === "") this.request.messages.pop();
+
+		const lastAssistantIdx = this.request.messages.length - 1;
+		const lastUserIdx = lastAssistantIdx - 1;
+		if (
+			this.request.messages &&
+			lastUserIdx >= 0 &&
+			this.request.messages[lastUserIdx] &&
+			(this.request.messages[lastUserIdx]?.role || "").toLowerCase() === "user"
+		) {
+			const totalPrompt = Number(conn.response.metrics.requestTokens || 0);
+			let priorPromptSum = 0;
+			for (let i = 0; i < lastUserIdx; i++) {
+				const msg = this.request.messages[i]!;
+				if ((msg.role || "").toLowerCase() !== "assistant")
+					priorPromptSum += Number(msg.tokenCount || 0);
+			}
+			const delta = Math.max(0, totalPrompt - priorPromptSum);
+			this.request.messages[lastUserIdx].tokenCount = delta;
+		}
+
+		this.updateMetrics({ ...conn.response.metrics, seconds: conn.response.metrics.seconds || (Date.now() - this.started) / 1000 });
 
 		return last?.content ?? "";
 	}
