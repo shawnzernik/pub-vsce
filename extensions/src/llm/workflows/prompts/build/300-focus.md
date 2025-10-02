@@ -1,4 +1,5 @@
-Group the errors either by file or common error message.
-We want to focus on a single file, or common error message that will clear the most number of errors.
+Group the errors by file, error type, and their likely impact on other errors.
 
-Provide me your selection of file or common error, and your rational for selecting that one to focus on.
+- Prioritize selecting a single file or error group whose fix will unblock the most downstream errors.
+- Provide reasoning for the choice focusing on maximum error clearance.
+- Identify files with cascading errors and mark them for collective fixing.

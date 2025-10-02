@@ -255,14 +255,18 @@ export class Message extends React.PureComponent<Properties, State> {
 			"": ".txt"
 		};
 		const ext = map[l];
-		if (ext && !ext.startsWith(".")) return ext;
+		if (ext && !ext.startsWith("."))
+			return ext;
 		return ext || ".txt";
 	}
 
 	private flattenToText(node: any): string {
-		if (node === null || node === undefined) return "";
-		if (typeof node === "string" || typeof node === "number") return String(node);
-		if (Array.isArray(node)) return node.map((n) => this.flattenToText(n)).join("");
+		if (node === null || node === undefined)
+			return "";
+		if (typeof node === "string" || typeof node === "number")
+			return String(node);
+		if (Array.isArray(node))
+			return node.map((n) => this.flattenToText(n)).join("");
 		if (React.isValidElement(node)) {
 			const props: any = (node as any).props;
 			return this.flattenToText(props?.children);

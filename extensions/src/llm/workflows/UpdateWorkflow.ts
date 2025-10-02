@@ -9,6 +9,8 @@ interface UpdateFile extends File {
 }
 
 export class UpdateWorkflow extends WorkflowBase {
+	private fileList: { name: string; action: "add" | "edit" | "delete" }[] = [];
+
 	public static create(
 		config: Config,
 		repository: Repository,
@@ -20,13 +22,13 @@ export class UpdateWorkflow extends WorkflowBase {
 	protected override async execute(): Promise<void> {
 		if (!this.request) throw new Error("Request not initialized");
 
-		const total = await this.step2Files();
+		await this.step2Files();
 
-		for (let i = 1; i <= total; i++) {
+		for (let i = 0; i < this.fileList.length; i++) {
 			const stepResult = await this.step3Contents(i);
 
 			if (!stepResult || !stepResult.file)
-				throw new Error(`Step ${i} did not return a file result!`);
+				throw new Error(`Step ${i + 1} did not return a file result!`);
 
 			const file = stepResult.file;
 
@@ -49,21 +51,38 @@ export class UpdateWorkflow extends WorkflowBase {
 		const prompt = await this.readBundledPrompt("update/002-file-list.md");
 		const text = (await this.sendUserMessage(prompt)).trim();
 
-		let m = /Total number of items in list:\s*(\d+)\b/i.exec(text);
-		if (!m)
-			m = /Total number of items in list\b[\s\S]*?(\d+)/i.exec(text);
+		try {
+			const arr = JSON.parse(text);
 
-		if (!m) {
-			const snippet = text.length > 1000 ? text.slice(0, 1000) + "..." : text;
-			throw new Error(
-				`Could not detect 'Total number of items in list: #.' Response snippet:\n${snippet}`
-			);
+			if (!Array.isArray(arr))
+				throw new Error("Step 2 response not an array");
+
+			for (const entry of arr) {
+				if (
+					typeof entry !== "object" ||
+					typeof entry.name !== "string" ||
+					!["add", "edit", "delete"].includes(entry.action)
+				) {
+					throw new Error("Invalid file list entry");
+				}
+			}
+
+			this.fileList = arr;
+			return arr.length;
+
+		} catch (err) {
+			throw new Error(`Failed to parse step 2 file list JSON: ${(err as Error).message}`);
 		}
-		return Number.parseInt(m[1] || "0", 10);
 	}
 
 	private async step3Contents(counter: number): Promise<{ file?: UpdateFile; handled?: boolean }> {
-		const userPrompt = (await this.readBundledPrompt("update/003-contents.md")).replace(/{{counter}}/g, counter.toFixed());
+		if (counter < 0 || counter >= this.fileList.length) {
+			throw new Error(`Invalid index ${counter} for fileList of length ${this.fileList.length}`);
+		}
+
+		const userPrompt = (await this.readBundledPrompt("update/003-contents.md"))
+			.replace(/{{filename}}/g, this.fileList[counter]!.name)
+			.replace(/{{fileaction}}/g, this.fileList[counter]!.action);
 
 		for (let attempt = 1; attempt <= 2; attempt++) {
 			const text = await this.sendUserMessage(userPrompt);
@@ -73,7 +92,6 @@ export class UpdateWorkflow extends WorkflowBase {
 			if (blocks.length > 0)
 				jsonText = blocks[0]?.contents?.trim() ?? "";
 			else {
-				// Extract first fenced code block (` ```json ... ``` ` or `~~~ ... ~~~`) or fallback to raw text
 				const m =
 					/(?:^|\n)([`~]{3,})(?:json|javascript|js)?\s*\n([\s\S]*?)\n\1/.exec(text) ||
 					/(?:^|\n)([`~]{3,})\s*\n([\s\S]*?)\n\1/.exec(text);
@@ -85,7 +103,7 @@ export class UpdateWorkflow extends WorkflowBase {
 				if (
 					typeof parsed !== "object" ||
 					typeof parsed.name !== "string" ||
-					!(["add", "edit", "delete"] as string[]).includes(parsed.action)
+					!( ["add", "edit", "delete"] as string[]).includes(parsed.action)
 				)
 					throw new Error("Parsed JSON missing required fields 'name' or 'action'");
 

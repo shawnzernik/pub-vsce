@@ -14,30 +14,19 @@ After that, I’ll request the **full contents of the files one by one**.
 - If docs require updates based on changes, **include those edits**.  
 - Update tests as needed while avoiding breaking changes.  
 - Confirm any **breaking changes** before adding to the change set.  
+- Do not leave empty files behind.  Delete them.
+- When updating markdown documents, do not remove any content - add to it.  Feel free to reorganize to give structure, but do not remove content or detail.
 
-**Test-Driven Development**  
-- Use TDD where possible.  
-- Write tests for new code and bug fixes.  
-- Write code to pass the tests.  
-- Do **not** alter tests once established—that indicates a breaking change.  
-- Avoid mocks if possible.  We prefer end to end tests over mocks.
-
-**Breaking Changes**  
-- Avoid them when possible.  
-- Get confirmation before generating code for breaking changes.  
-- If a breaking change is required:  
-  - Locate the `package.json` version in `X.Y.Z` format.  
-  - Update the version setting X = X + 1.  
-  - Update all relevant `package.json` files for that microservice.  
-
-**Task**  
-For the change set, work **file-by-file** using the **full path** of each file to be **added**, **edited**, or **deleted**. Provide a **summary of changes** only (not full file contents).  
+**Task**
+Scan through the files provided.
+For the change set, work **file-by-file** using the **full path** of each file to be **added**, **edited**, or **deleted**. Provide a **summary of changes** only (not full file contents).
+Do any confirmations and validations based on the files provided.
 
 **Format for Add/Edit:**  
 1. **{Add|Edit}: full/path/to/file.ext**  
    - Bullet point summary (required)  
    ```  
-   code snippets if needed  
+   code snippets  
    ```  
 
 **Format for Delete:**  

@@ -223,6 +223,22 @@ Workflows automate AI-driven tasks like file updates, commits, and planning by o
 
 ---
 
+# ### Generalized Workflow Best Practices
+
+Additions to emphasize workflow design consistent across all implementations:
+
+- Use exclusively external markdown prompt files for all AI instructions and context; avoid hardcoding prompts.
+- Create isolated minimal AI message context per workflow execution to minimize token usage and side effects.
+- Strictly parse AI responses as JSON where required; implement retry and self-correct via designated self-correct prompt files.
+- Avoid mutating input Request objects; always operate on deep copies or isolated Requests.
+- All AI calls should use standardized Connection abstractions configured via global Config parameters.
+- Implement graceful error handling inside workflows by catching and appending assistant error messages for UI visibility.
+- Read prompt files fresh on every workflow run; do not cache prompts in code unless critical for performance.
+- Use Updater callbacks to emit streaming partial updates and metrics to UI regularly.
+- Design workflows modularly for reusability and factory-based instantiation enabling easy extension and maintenance.
+
+---
+
 # Summary
 
 This guide empowers developers or AI systems to design robust, maintainable, and integrated AI workflows for the Aici extension, leveraging existing foundations for consistent developer and user experience.

@@ -10,7 +10,31 @@ export class Repository {
 	private cachedConfig: Config | undefined;
 	private regexCache: Dictionary<RegExp> = {};
 
-	private static async getRoot(target: string): Promise<string> {
+	private static workspaceRoot: string | null = null;
+	private static async getWorkspaceRoot(): Promise<string> {
+		if (this.workspaceRoot)
+			return this.workspaceRoot;
+
+		const folders = vscode.workspace.workspaceFolders;
+		if (!folders || folders.length === 0)
+			throw new Error("No workspace is open.");
+
+		if (folders.length === 1) {
+			this.workspaceRoot = folders[0]!.uri.fsPath;
+			return this.workspaceRoot;
+		}
+
+		const folder = await vscode.window.showWorkspaceFolderPick({
+			placeHolder: "Select the workspace folder to use as the repository root"
+		});
+		if (!folder)
+			throw new Error("No workspace folder selected.");
+
+		this.workspaceRoot = folder.uri.fsPath;
+		return this.workspaceRoot;
+	}
+	// @ts-ignore
+	private static async getGitRoot(target: string): Promise<string> {
 		let dir = path.dirname(target);
 		try {
 			const stat = fs.statSync(target);
@@ -31,9 +55,10 @@ export class Repository {
 		return nis.output.trim();
 	}
 
-	public static async instance(target: vscode.Uri): Promise<Repository> {
-		const root = await this.getRoot(target.fsPath);
-		return new Repository(root, target);
+	public static async instance(): Promise<Repository> {
+		const root = await this.getWorkspaceRoot();
+		const rootUri = vscode.Uri.file(root);
+		return new Repository(root, rootUri);
 	}
 
 	private scope: vscode.Uri;
@@ -107,7 +132,6 @@ export class Repository {
 				try {
 					this.regexCache[regexStr] = new RegExp(regexStr);
 				} catch {
-					// If a regex fails to compile, skip it rather than failing overall
 					continue;
 				}
 			}
@@ -121,10 +145,15 @@ export class Repository {
 	}
 
 	private async isGitIgnored(fullPath: string): Promise<boolean> {
-		const escaped = fullPath.replace(/"/g, '\\"');
+		if (fullPath.endsWith("/.git") || fullPath.endsWith("\\.git"))
+			return true;
+
+		const dir = fs.statSync(fullPath).isDirectory() ? fullPath : path.dirname(fullPath);
+		const baseName = path.basename(fullPath);
+
 		const nis = await NoninteractiveShell.execute(
-			`git check-ignore -q "${escaped}"`,
-			{ cwd: this.root }
+			`git check-ignore -q "${baseName}"`,
+			{ cwd: dir }
 		);
 
 		if (nis.code === 0)
@@ -149,30 +178,18 @@ export class Repository {
 
 	private async getConfig(): Promise<Config> {
 		if (!this.cachedConfig)
-			this.cachedConfig = await Config.create(this.scope);
+			this.cachedConfig = await Config.create();
 		return this.cachedConfig!;
 	}
 
 	public makeAbsolute(original: string): string {
-		// Reject legacy "~/" usage to force caller updates
-		if (original.startsWith("~/")) {
-			throw new Error("Legacy '~/...' paths are not supported. Use relative repo paths instead.");
-		}
-
-		// absolute
 		if (path.isAbsolute(original))
 			return path.resolve(original);
 
-		// relative to repository root (most common)
 		return path.resolve(this.root, original);
 	}
 
 	public makeRelative(original: string): string {
-		// Disallow legacy "~/"
-		if (original.startsWith("~/")) {
-			throw new Error("Legacy '~/...' paths are not supported. Use relative repo paths instead.");
-		}
-
 		let abs = original;
 		if (!path.isAbsolute(original))
 			abs = path.resolve(this.root, original);

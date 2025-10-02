@@ -14,7 +14,7 @@ export class ConversationManager {
 		const isAssistant = incomingLast?.role?.toLowerCase() === "assistant";
 		const incomingText = (incomingLast?.content || "").trim();
 
-		console.debug("mergeAssistantMessage - Incoming last role:", incomingLast?.role, "content:", incomingText.substring(0,100));
+		console.debug("mergeAssistantMessage - Incoming last role:", incomingLast?.role, "content:", incomingText.substring(0, 100));
 
 		if (!isAssistant || incomingText.length === 0)
 			return cloned;
@@ -23,7 +23,7 @@ export class ConversationManager {
 		const lastCurrText = (lastCurr?.content || "").trim();
 		const lastCurrRole = (lastCurr?.role || "").toLowerCase();
 
-		console.debug("mergeAssistantMessage - Current last role:", lastCurr?.role, "content:", lastCurrText.substring(0,100));
+		console.debug("mergeAssistantMessage - Current last role:", lastCurr?.role, "content:", lastCurrText.substring(0, 100));
 
 		if (lastCurr && lastCurrRole === "assistant") {
 			if (incomingText !== lastCurrText) {
@@ -66,7 +66,8 @@ export class ConversationManager {
 		for (const raw of lines) {
 			const line = raw.trim();
 			const m = /^\s*\/([a-z][\w\-]*)\s*$/i.exec(line);
-			if (m) return (m[1] || "").toLowerCase();
+			if (m)
+				return (m[1] || "").toLowerCase();
 		}
 		return undefined;
 	}
@@ -75,7 +76,8 @@ export class ConversationManager {
 	 * Resolve model selection string to used model string.
 	 */
 	public static resolveModel(selection: string | undefined, defaultModel: string): string {
-		if (!selection || selection === "default") return defaultModel || "";
+		if (!selection || selection === "default")
+			return defaultModel || "";
 		return selection;
 	}
 }

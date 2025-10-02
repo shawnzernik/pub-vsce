@@ -46,11 +46,11 @@ export class Config implements AiciConfig {
 		this.ignoreRegex = [];
 	}
 
-	public static async create(uri: vscode.Uri): Promise<Config> {
+	public static async create(): Promise<Config> {
 		const config = new Config();
 
 		try {
-			const repo = await Repository.instance(uri);
+			const repo = await Repository.instance();
 			const settingsRaw = repo.read(".vscode/settings.json");
 			const settings = json5.parse(settingsRaw);
 
@@ -102,10 +102,10 @@ export class Config implements AiciConfig {
 		return ret;
 	}
 
-	public async save(uri: vscode.Uri): Promise<void> {
+	public async save(): Promise<void> {
 		if (!Config.secretStorage) throw new Error("SecretStorage not initialized");
 
-		const repo = await Repository.instance(uri);
+		const repo = await Repository.instance();
 		const settingsRaw = repo.read(".vscode/settings.json");
 		let settings: any = {};
 		try {

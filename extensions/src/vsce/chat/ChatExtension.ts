@@ -59,7 +59,8 @@ export class ChatExtension extends BaseExtension {
 
 	private async readBundledSystemPrompt(): Promise<string> {
 		const ext = vscode.extensions.getExtension("LagoVistaTechnologies.aici");
-		if (!ext || !ext.extensionPath) return "";
+		if (!ext || !ext.extensionPath)
+			return "";
 
 		const candidates = [
 			path.join(ext.extensionPath, "dist", "llm", "workflows", "prompts", "000-system.md"),
@@ -69,7 +70,8 @@ export class ChatExtension extends BaseExtension {
 		for (const cand of candidates) {
 			try {
 				const content = await fs.readFile(cand, "utf8");
-				if (content) return content;
+				if (content)
+					return content;
 			} catch {
 				// ignore and try next
 			}

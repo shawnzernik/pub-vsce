@@ -29,5 +29,6 @@
 	"aici.rag.dependencyDepth": 1,
 	"aici.rag.dependencyPrompt": "editable prompt here",
 	"emmet.showExpandedAbbreviation": "never",
-	"emmet.triggerExpansionOnTab": false
+	"emmet.triggerExpansionOnTab": false,
+	"aici.buildBuildRetries": 5
 }

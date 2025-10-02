@@ -2,8 +2,8 @@ import { WorkflowBase } from "./WorkflowBase";
 import { Repository } from "../../system/Repository";
 import { Config } from "../../config";
 import { NoninteractiveShell } from "../../system/NoninteractiveShell";
-import { PlanWorkflow } from "./PlanWorkflow";
 import { UpdateWorkflow } from "./UpdateWorkflow";
+import { PlanWorkflow } from "./PlanWorkflow";
 import { parseFileFencedBlocks } from "./MarkdownFencedParser";
 
 interface CliCommands {
@@ -22,27 +22,43 @@ export class BuildWorkflow extends WorkflowBase {
 
 	protected override async execute(): Promise<void> {
 		const cliCommands = await this.getCliCommands();
+		const maxNoProgressIterations = this.config.buildBuildRetries ?? 5;
+		let consecutiveNoProgressCount = 0;
+		let lastErrors: string[] = [];
 
-		let noErrors = await this.runCmd(cliCommands.clean);
-		if (!noErrors)
-			throw new Error("Clean resulted in errors!");
+		for (let attemptIndex = 1; ; attemptIndex++) {
+			const cleanErrors = await this.runCmd(cliCommands.clean);
+			if (cleanErrors.length !== 0) {
+				throw new Error("Clean resulted in errors!");
+			}
 
-		const maxIterations = this.config.buildBuildRetries ?? 5;
-		for (let attempt = 1; attempt <= maxIterations; attempt++) {
-			noErrors = await this.runCmd(cliCommands.build)
-			if (noErrors)
+			const buildErrors = await this.runCmd(cliCommands.build);
+			if (buildErrors.length === 0) {
 				return;
+			}
+
+			if (lastErrors.length === buildErrors.length) {
+				const promptNudge = await this.readBundledPrompt("build/402-build-nudge.md");
+				await this.sendUserMessage(promptNudge);
+
+				consecutiveNoProgressCount++;
+				if (consecutiveNoProgressCount >= maxNoProgressIterations) {
+					throw new Error(`Build failed with no progress after ${maxNoProgressIterations} retries.`);
+				}
+			} else {
+				consecutiveNoProgressCount = 0;
+			}
+
+			lastErrors = buildErrors;
 
 			await this.fixErrors();
 		}
-
-		throw new Error("The maximum number of build retries has occurred.")
 	}
 
 	private async getCliCommands(): Promise<CliCommands> {
 		let prompt = "";
 
-		for (let attempt = 1; attempt <= 2; attempt++) {
+		for (let attemptIndex = 1; attemptIndex <= 2; attemptIndex++) {
 			prompt = await this.readBundledPrompt("build/100-get-commands.md");
 			const response = await this.sendUserMessage(prompt);
 
@@ -64,7 +80,7 @@ export class BuildWorkflow extends WorkflowBase {
 
 				return { clean: parsed.clean, build: parsed.build };
 			} catch (err) {
-				if (attempt === 2) {
+				if (attemptIndex === 2) {
 					throw err;
 				}
 
@@ -77,26 +93,57 @@ export class BuildWorkflow extends WorkflowBase {
 		throw new Error("Failed to parse CLI commands from LLM response");
 	}
 
-	private async runCmd(cmd: string): Promise<boolean> {
-		const nis = await NoninteractiveShell.execute(cmd, { cwd: this.repository.root });
-		const output = nis.output;
+	private async runCmd(command: string): Promise<string[]> {
+		const nis = await NoninteractiveShell.execute(command, { cwd: this.repository.root });
 
-		const detectPromptTemplate = await this.readBundledPrompt(`build/200-error-detect.md`);
-		const detectPrompt = detectPromptTemplate.replace(/{{output}}/g, output);
-		const response = await this.sendUserMessage(detectPrompt);
+		const systemPrompt = await this.readBundledPrompt("000-system.md");
+		const messages = [{ role: "system", content: systemPrompt }];
 
-		const normalized = response.toLowerCase();
-		return normalized.includes("no error");
+		let detectPrompt = await this.readBundledPrompt("build/200-error-detect.md");
+		detectPrompt = detectPrompt.replace(/{{output}}/g, nis.output);
+
+		let assistantContent = await this.sendOutOfBandRequest(detectPrompt, messages);
+
+		try {
+			const parsed = JSON.parse(assistantContent);
+			if (
+				typeof parsed === "object" &&
+				parsed !== null &&
+				Array.isArray(parsed.errors) &&
+				parsed.errors.every((errorEntry: any) => typeof errorEntry === "string")
+			) {
+				return parsed.errors;
+			}
+
+			throw new Error("Expected object with 'errors' array of strings");
+		} catch {
+			let fixPrompt = await this.readBundledPrompt("build/900-self-correct.md");
+			fixPrompt = fixPrompt.replace(/{{text}}/g, assistantContent);
+			assistantContent = await this.sendOutOfBandRequest(fixPrompt, messages);
+			try {
+				const fixed = JSON.parse(assistantContent);
+				if (
+					typeof fixed === "object" &&
+					fixed !== null &&
+					Array.isArray(fixed.errors) &&
+					fixed.errors.every((errorEntry: any) => typeof errorEntry === "string")
+				) {
+					return fixed.errors;
+				}
+			} catch {
+				throw new Error("Could not resolve formatting errors: " + JSON.stringify(messages, null, "\t"));
+			}
+		}
+
+		throw new Error("Did not parse JSON error messages!");
 	}
 
 	private async fixErrors(): Promise<void> {
-		let prompt = "";
+		const focusPrompt = await this.readBundledPrompt("build/300-focus.md");
+		await this.sendUserMessage(focusPrompt);
 
-		prompt = await this.readBundledPrompt("build/300-focus.md");
-		await this.sendUserMessage(prompt);
-
-		prompt = await this.readBundledPrompt("build/301-analyze.md");
-		await this.sendUserMessage(prompt);
+		const analyzePrompt = await this.readBundledPrompt("build/301-analyze.md");
+		await this.sendUserMessage(analyzePrompt);
 
 		this.request?.messages.push({
 			role: "user",

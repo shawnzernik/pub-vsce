@@ -1,11 +1,11 @@
-For file {{counter}}, I'll ask you to provide action and the full path file name, and for add and edits I'll want the full contents of the file.
+For `{{fileaction}} {{filename}}`, I'll ask you to provide action and the full path file name, and for add and edits I'll want the full contents of the file.
 
 **Formatting Constraints**
 - Reuse existing code before creating new code.
 - Do not remove functionality unless explicitly asked.
 - Do not add/remove comments or functionality beyond what is required.  
 - Only make the necessary edits; leave the rest unchanged.  
-- Never use placeholders (`// ...`, `// rest of logic`, `[rest of file unchanged]`, etc.).  
+- Never use placeholders (`// ...`, `// rest of logic`, `[rest of file unchanged]`, `*Rest of README unchanged*` etc.).  
 - Output the complete, compilable file  
 - Always provide the full path file name before files contents.
 

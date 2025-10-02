@@ -56,7 +56,8 @@ export class SettingsWebview extends React.Component<Properties, State> {
 
 	private autoSizeTextarea(ref: React.RefObject<HTMLTextAreaElement | null>): void {
 		const el = ref?.current;
-		if (!el) return;
+		if (!el)
+			return;
 		requestAnimationFrame(() => {
 			el.style.height = "auto";
 			const h = el.scrollHeight + 2;

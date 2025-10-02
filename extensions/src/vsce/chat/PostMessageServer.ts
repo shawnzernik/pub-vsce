@@ -61,7 +61,7 @@ export class PostMessageServer extends BasePostMessageServer {
 			return;
 
 		try {
-			const config = await Config.create(this.resourceUri!);
+			const config = await Config.create();
 			const lastUserMessage = ConversationManager.getLastUserMessage(message.payload.conversation);
 			const workflowName = ConversationManager.extractWorkflowName(lastUserMessage?.content || "");
 
@@ -153,7 +153,7 @@ export class PostMessageServer extends BasePostMessageServer {
 			));
 		};
 
-		const repo = await Repository.instance(this.resourceUri!);
+		const repo = await Repository.instance();
 		const workflow = WorkflowFactory.create(config, repo, workflowName, updater);
 
 		const request: Request = {
@@ -202,7 +202,8 @@ export class PostMessageServer extends BasePostMessageServer {
 		}
 
 		const uri = await vscode.window.showSaveDialog(saveDialogOptions);
-		if (!uri) return;
+		if (!uri)
+			return;
 
 		const bytes = new TextEncoder().encode(content);
 		await vscode.workspace.fs.writeFile(uri, bytes);
@@ -211,13 +212,14 @@ export class PostMessageServer extends BasePostMessageServer {
 	public handleWebviewReady(): void {
 		if (this.getSnapshot) this.send(PostMessageTypes.FileLoaded, this.getSnapshot());
 
-		void Config.create(this.resourceUri!).then(config => {
+		void Config.create().then(config => {
 			this.sendAiModels(config.aiModels || [], config.aiModel || "");
 		});
 	}
 
 	public handleFileChanged(message: PostMessage<File>): void {
-		if (!this.fileChangedCallback) return;
+		if (!this.fileChangedCallback)
+			return;
 
 		this.fileChangedCallback(message.payload);
 	}

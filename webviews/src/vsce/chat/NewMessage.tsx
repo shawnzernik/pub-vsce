@@ -42,14 +42,16 @@ export class NewMessage extends React.Component<Properties, State> {
 	}
 
 	private onDrag = (ev: MouseEvent): void => {
-		if (!this.dragging) return;
+		if (!this.dragging)
+			return;
 		const delta = this.startY - ev.clientY;
 		const next = Math.max(60, Math.min(800, Math.round(this.startHeight + delta)));
 		this.setState({ height: next });
 	};
 
 	private endDrag = (_ev: MouseEvent): void => {
-		if (!this.dragging) return;
+		if (!this.dragging)
+			return;
 		this.dragging = false;
 		window.removeEventListener("mousemove", this.onDrag);
 		window.removeEventListener("mouseup", this.endDrag);

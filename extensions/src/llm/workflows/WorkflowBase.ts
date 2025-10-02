@@ -4,6 +4,7 @@ import { Metrics } from "@lvt/aici-library/dist/llm/Metrics";
 import { Config } from "../../config";
 import { Message } from "@lvt/aici-library/dist/llm/Message";
 import { ResponseStatus } from "@lvt/aici-library/dist/llm/Response";
+import { Uuid } from "@lvt/aici-library/dist/Uuid";
 
 import { Connection } from "../openai/Connection";
 
@@ -39,6 +40,7 @@ export abstract class WorkflowBase {
 			});
 		}
 	}
+
 	public async sendRequest(request: Request): Promise<void> {
 		// Pass request by reference to enable natural updates
 		this.request = request;
@@ -132,6 +134,44 @@ export abstract class WorkflowBase {
 		return last?.content ?? "";
 	}
 
+	/**
+	 * Send an isolated AI request out-of-band without affecting main workflow request.
+	 * Supports supplying a new user message and optional prior message history.
+	 */
+	protected async sendOutOfBandRequest(newUserMessage: string, requestHistory?: Message[]): Promise<string> {
+		const messages: Message[] = [];
+		if (requestHistory && Array.isArray(requestHistory)) {
+			messages.push(...requestHistory);
+		} else {
+			// If no history provided, load default system prompt from bundled prompts
+			const systemPrompt = await this.readBundledPrompt("000-system.md");
+			messages.push({ role: "system", content: systemPrompt });
+		}
+
+		messages.push({ role: "user", content: newUserMessage });
+
+		const request: Request = {
+			id: Uuid.asString(),
+			model: this.config.aiModel,
+			messages: messages
+		};
+
+		const conn = new Connection(
+			this.config.aiUrl,
+			this.config.aiKey,
+			() => { },
+			{
+				retries: this.config.aiRetries ?? 3,
+				retryDelaySeconds: this.config.aiRetryDelaySeconds ?? 10,
+			}
+		);
+
+		await conn.send(request);
+
+		if (conn.response.status === "error") throw new Error("The last response was in error!");
+
+		return conn.response.message.content;
+	}
 	protected async readBundledPrompt(relPath: string): Promise<string> {
 		const ext = await import("vscode").then((v) => v.extensions.getExtension("LagoVistaTechnologies.aici"));
 		if (ext && ext.extensionPath) {

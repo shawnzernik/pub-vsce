@@ -6,7 +6,8 @@ export interface ParsedFileBlock {
 
 export function parseFileFencedBlocks(markdown: string): ParsedFileBlock[] {
 	const results: ParsedFileBlock[] = [];
-	if (!markdown) return results;
+	if (!markdown)
+		return results;
 
 	const headerRe = /File\s+`([^`]+)`:\s*/g;
 	let headerMatch: RegExpExecArray | null;

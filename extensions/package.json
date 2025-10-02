@@ -1,6 +1,6 @@
 {
 	"name": "aici",
-	"version": "1.0.43",
+	"version": "1.0.45",
 	"author": "Shawn Zernik",
 	"publisher": "LagoVistaTechnologies",
 	"license": "AGPL-3.0-or-later",
@@ -25,7 +25,7 @@
 	},
 	"type": "commonjs",
 	"dependencies": {
-		"@lvt/aici-library": "file:../lvt-aici-library-1.0.554.tgz",
+		"@lvt/aici-library": "file:../lvt-aici-library-1.0.598.tgz",
 		"@types/json5": "^0.0.30",
 		"ignore": "^5.3.1",
 		"json5": "^2.2.3",

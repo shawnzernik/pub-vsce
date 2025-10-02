@@ -75,6 +75,8 @@ npm run test
 
 ## Configuration
 
+- All relative file paths used by the extension, AI workflows, and configurations are relative to the VS Code workspace folder root for consistency and security.
+
 Configure workspace `.vscode/settings.json` or use Aici Settings UI for:
 
 - `aici.aiApi`: AI provider key (e.g., "openai")
@@ -109,7 +111,7 @@ Configure workspace `.vscode/settings.json` or use Aici Settings UI for:
 
 ## License
 
-Licensed under GNU Affero General Public License v3 or later (AGPL-3.0-or-later). See `extensions/LICENSE.md` for details.
+Licensed under the GNU Affero General Public License v3 or later (AGPL-3.0-or-later). See `extensions/LICENSE.md` for details.
 
 ---
 

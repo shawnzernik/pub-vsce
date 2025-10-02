@@ -93,11 +93,13 @@ export class ChatWebview extends React.Component<Properties, State> {
 	}
 
 	private onNewMessageSend(): void {
-		if (!this.state.file || !this.state.conversation) return;
+		if (!this.state.file || !this.state.conversation)
+			return;
 
 		const convo = JsonHelper.copy<ConversationDto>(this.state.conversation);
 		const trimmed = (this.state.message.content || "").trim();
-		if (!trimmed) return;
+		if (!trimmed)
+			return;
 
 		const filesInline = this.state.attachments
 			.map((file) => FileHelper.toMarkdown(file))
@@ -123,7 +125,8 @@ export class ChatWebview extends React.Component<Properties, State> {
 	}
 
 	private onUserMessageSelected(index: number, content: string): void {
-		if (!this.state.file || !this.state.conversation) return;
+		if (!this.state.file || !this.state.conversation)
+			return;
 
 		const convo = this.state.conversation;
 		const base = Array.isArray(convo.messages) ? convo.messages : [];
@@ -143,13 +146,15 @@ export class ChatWebview extends React.Component<Properties, State> {
 		const completion = this.state.metrics.responseTokens || 0;
 		const total = prompt + completion;
 		const s = this.state.metrics.seconds || 0;
-		if (!s) return "0.00";
+		if (!s)
+			return "0.00";
 		const tps = total / s;
 		return tps.toFixed(2);
 	}
 
 	private changeFile(contents: string): void {
-		if (!this.state.file) return;
+		if (!this.state.file)
+			return;
 
 		const newFile: File = {
 			name: this.state.file.name,
@@ -177,7 +182,8 @@ export class ChatWebview extends React.Component<Properties, State> {
 			messages: [{ role: "system", content: systemPrompt }],
 		};
 
-		if (!this.state.file) return;
+		if (!this.state.file)
+			return;
 
 		const newFile: File = {
 			name: this.state.file.name,

@@ -1,6 +1,5 @@
 import { PostMessageServer } from "./PostMessageServer";
 import { BaseExtension } from "../BaseExtension";
-import * as vscode from "vscode";
 
 export class SettingsExtension extends BaseExtension {
 	protected override getVsceCommand(): string {
@@ -13,6 +12,6 @@ export class SettingsExtension extends BaseExtension {
 		return "settings";
 	}
 	protected override getPostMessageServer(): PostMessageServer {
-		return new PostMessageServer(this.panel!, vscode.workspace.workspaceFolders![0]!.uri!);
+		return new PostMessageServer(this.panel!);
 	}
 }

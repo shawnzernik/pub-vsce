@@ -27,7 +27,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 			let repo: Repository;
 			try {
-				repo = await Repository.instance(uri);
+				repo = await Repository.instance();
 			} catch (err) {
 				vscode.window.showInformationMessage(`Aici: Failed to locate repository: ${String((err as Error)?.message || err)}`);
 				return;

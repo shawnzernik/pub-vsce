@@ -7,10 +7,8 @@ import { AiciConfig } from "@lvt/aici-library/dist/vsce/AiciConfig";
 import { Config } from "../../config";
 
 export class PostMessageServer extends BasePostMessageServer {
-	private resourceUri: vscode.Uri;
-	public constructor(panel: vscode.WebviewPanel, resourceUri: vscode.Uri) {
+	public constructor(panel: vscode.WebviewPanel) {
 		super(panel);
-		this.resourceUri = resourceUri;
 	}
 
 	protected override getHandlers(): Dictionary<(pm: PostMessage<any>) => void> {
@@ -21,12 +19,12 @@ export class PostMessageServer extends BasePostMessageServer {
 	}
 
 	private async handleSettingsGet(_message: PostMessage<null | undefined>): Promise<void> {
-		const cfg = await Config.create(this.resourceUri);
+		const cfg = await Config.create();
 		this.send(PostMessageTypes.SettingsLoaded, cfg);
 	}
 
 	private async handleSettingsSave(message: PostMessage<AiciConfig>): Promise<void> {
 		const cfg = Config.copy(message.payload);
-		await cfg.save(this.resourceUri);
+		await cfg.save();
 	}
 }
